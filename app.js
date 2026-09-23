@@ -506,6 +506,7 @@
     $('statSessions').textContent = D.sessionDates(state.sets).length;
     $('statPrs').textContent = xp.prCount;
 
+    renderIdentity();
     renderWeeks();
     renderBodyweight();
 
@@ -575,7 +576,7 @@
 
     window.LiftChart.render($('bwChart'), log.map(function (b) {
       return { x: D.isoToMs(b.date), y: b.weight, label: num(b.weight) + ' ' + unit() };
-    }), { title: 'Bodyweight (' + unit() + ')', color: 'var(--cyan)' });
+    }), { title: 'Bodyweight (' + unit() + ')', color: 'var(--accent-2)' });
 
     /* Just the recent ones — the chart covers the rest. */
     var recent = log.slice(-5).reverse();
@@ -608,6 +609,61 @@
     var st = D.streak(state.sets);
     $('streakChip').hidden = st.current < 1;
     $('streakN').textContent = st.current;
+  }
+
+  /* ── Profile & theme ───────────────────────────────────── */
+  function applyTheme() {
+    document.documentElement.setAttribute('data-theme', state.profile.theme);
+    document.querySelectorAll('.theme-swatch').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.theme === state.profile.theme));
+    });
+  }
+
+  function buildThemePicker() {
+    var wrap = $('themes');
+    wrap.innerHTML = '';
+    D.THEMES.forEach(function (t) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'theme-swatch';
+      b.dataset.theme = t.id;
+      b.title = t.label;
+      b.setAttribute('aria-label', t.label);
+      b.style.setProperty('--sw1', t.a1);
+      b.style.setProperty('--sw2', t.a2);
+      b.innerHTML = '<i></i>';
+      b.addEventListener('click', function () {
+        state.profile.theme = t.id;
+        persist();
+        applyTheme();
+        /* Charts bake their colour in at render time. */
+        if (currentView === 'you') renderYou();
+        if (currentView === 'progress') renderProgress();
+        toast(t.label);
+      });
+      wrap.appendChild(b);
+    });
+    applyTheme();
+  }
+
+  var nameInput = $('s-name');
+  nameInput.addEventListener('input', function () {
+    state.profile.name = nameInput.value.trim();
+    persist();
+    renderIdentity();
+  });
+
+  function renderIdentity() {
+    var name = state.profile.name;
+    var who = $('whoLine');
+    who.hidden = !name;
+    who.textContent = name;
+
+    var dates = D.sessionDates(state.sets);
+    $('sinceLine').textContent = dates.length
+      ? '  ·  since ' + new Date(D.isoToMs(dates[0])).toLocaleDateString(
+          undefined, { month: 'short', year: 'numeric' })
+      : '';
   }
 
   /* ── Settings & data ───────────────────────────────────── */
@@ -664,9 +720,13 @@
             !confirm('Replace your ' + state.sets.length + ' sets with ' +
                      data.sets.length + ' from this file?')) return;
         state = {
-          v: 2, unit: data.unit || 'lbs', sets: data.sets,
+          v: 3, unit: data.unit || 'lbs', sets: data.sets,
           bodyweight: Array.isArray(data.bodyweight) ? data.bodyweight : [],
-          goals: data.goals || {}
+          goals: data.goals || {},
+          profile: {
+            name: (data.profile && data.profile.name) || state.profile.name,
+            theme: (data.profile && data.profile.theme) || state.profile.theme
+          }
         };
         persist();
         boot();
@@ -684,7 +744,8 @@
     if (!state.sets.length && !state.bodyweight.length) return toast('Nothing to delete');
     if (!confirm('Delete everything? This cannot be undone.')) return;
     if (!confirm('Really? Export a backup first if there is any chance you want it.')) return;
-    state = { v: 2, unit: state.unit, sets: [], bodyweight: [], goals: {} };
+    /* Settings and who you are survive a data wipe. */
+    state = { v: 3, unit: state.unit, sets: [], bodyweight: [], goals: {}, profile: state.profile };
     persist();
     boot();
     toast('All data deleted');
@@ -703,6 +764,8 @@
   /* ── Boot ──────────────────────────────────────────────── */
   function boot() {
     document.querySelectorAll('.unit-label').forEach(function (u) { u.textContent = state.unit; });
+    nameInput.value = state.profile.name;
+    buildThemePicker();
     renderLog();
     renderStreakChip();
     if (currentView === 'history') renderHistory();

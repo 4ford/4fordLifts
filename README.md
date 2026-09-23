@@ -1,9 +1,17 @@
-# Lift Tracker
+# 4fordLifts
 
 A personal workout log: record sets, see your PRs, and watch your estimated 1RM
 climb. Runs entirely in the browser — no build step, no server, no dependencies.
 
 **Live:** <https://lift-tracker-4ford.vercel.app>
+
+## Colors
+
+Two accents, each with a fixed job — `--accent` is the lifting (primary action,
+PR badges, lift charts), `--accent-2` is progression (level, XP, streak,
+bodyweight). Everything else derives from those two with `color-mix`, so the
+five themes in Settings are just a pair of hex values each, defined at the top
+of `styles.css`.
 
 ## Features
 

@@ -16,12 +16,22 @@
   --text-2:       #9ba1a7;
   --muted:        #6a7076;
 
+  /* Two accents with fixed jobs, never decoration:
+     --accent   = the lifting itself (primary action, PRs, lift charts)
+     --accent-2 = progression (level, XP, streak, bodyweight)
+     Swapped as a pair by the theme picker; everything else derives. */
   --accent:       #ccff33;
   --accent-ink:   #0a0f00;
-  --accent-soft:  rgba(204, 255, 51, 0.12);
-  --accent-line:  rgba(204, 255, 51, 0.30);
+  --accent-2:     #b14aff;
+  --a2-ink:       #ffffff;
 
-  --cyan:         #2ee6d6;
+  --accent-soft:  color-mix(in srgb, var(--accent) 13%, transparent);
+  --accent-line:  color-mix(in srgb, var(--accent) 32%, transparent);
+  --accent-glow:  color-mix(in srgb, var(--accent) 38%, transparent);
+  --a2-soft:      color-mix(in srgb, var(--accent-2) 15%, transparent);
+  --a2-line:      color-mix(in srgb, var(--accent-2) 38%, transparent);
+  --a2-glow:      color-mix(in srgb, var(--accent-2) 45%, transparent);
+
   --danger:       #ff5f5f;
 
   --grid:         #1c2024;
@@ -33,6 +43,12 @@
 
   --font: system-ui, -apple-system, "Segoe UI Variable", "Segoe UI", sans-serif;
 }
+
+/* Theme presets — each is an accent pair, picked in Settings. */
+[data-theme="ultra"] { --accent: #b14aff; --accent-ink: #ffffff; --accent-2: #2ee6d6; --a2-ink: #00201d; }
+[data-theme="ice"]   { --accent: #2ee6d6; --accent-ink: #00201d; --accent-2: #ff4fd8; --a2-ink: #2a0020; }
+[data-theme="ember"] { --accent: #ff9d2e; --accent-ink: #1a0d00; --accent-2: #b14aff; --a2-ink: #ffffff; }
+[data-theme="neon"]  { --accent: #ff2e97; --accent-ink: #ffffff; --accent-2: #ccff33; --a2-ink: #0a0f00; }
 
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
@@ -68,8 +84,9 @@ body { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
 .wordmark {
   font-size: 0.875rem;
   font-weight: 800;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.2em;
 }
+.wordmark span { color: var(--accent); }
 .topbar-right { display: flex; align-items: center; gap: 8px; }
 
 .streak-chip {
@@ -78,9 +95,9 @@ body { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
   gap: 3px;
   padding: 5px 11px;
   border-radius: 999px;
-  background: var(--accent-soft);
-  border: 1px solid var(--accent-line);
-  color: var(--accent);
+  background: var(--a2-soft);
+  border: 1px solid var(--a2-line);
+  color: var(--accent-2);
   font-variant-numeric: tabular-nums;
 }
 .streak-n { font-size: 0.9375rem; font-weight: 800; letter-spacing: -0.02em; }
@@ -308,7 +325,7 @@ summary.group-head::-webkit-details-marker { display: none; }
   border-radius: 5px;
   background: var(--accent);
   color: var(--accent-ink);
-  box-shadow: 0 0 14px rgba(204, 255, 51, 0.35);
+  box-shadow: 0 0 14px var(--accent-glow);
 }
 
 .del {
@@ -334,13 +351,23 @@ summary.group-head::-webkit-details-marker { display: none; }
 
 /* ── Level card ──────────────────────────────────────────── */
 .level-card {
+  position: relative;
   background: var(--surface);
-  border: 1px solid var(--accent-line);
+  border: 1px solid var(--a2-line);
   border-radius: var(--r);
   padding: 18px;
   margin-bottom: 12px;
+  box-shadow: 0 0 34px -14px var(--a2-glow);
 }
 .level-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.level-who {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--accent-2);
+  margin-bottom: 4px;
+}
 .level-rank { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; }
 .level-sub {
   font-size: 0.6875rem;
@@ -356,8 +383,9 @@ summary.group-head::-webkit-details-marker { display: none; }
   display: grid; place-items: center;
   padding: 0 10px;
   border-radius: 12px;
-  background: var(--accent);
-  color: var(--accent-ink);
+  background: var(--accent-2);
+  color: var(--a2-ink);
+  box-shadow: 0 0 20px -4px var(--a2-glow);
   font-size: 1.375rem;
   font-weight: 800;
   letter-spacing: -0.03em;
@@ -374,8 +402,8 @@ summary.group-head::-webkit-details-marker { display: none; }
   height: 100%;
   width: 0;
   border-radius: 999px;
-  background: var(--accent);
-  box-shadow: 0 0 12px rgba(204, 255, 51, 0.5);
+  background: var(--accent-2);
+  box-shadow: 0 0 14px var(--a2-glow);
   transition: width 0.7s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .xp-meta {
@@ -459,8 +487,8 @@ summary.group-head::-webkit-details-marker { display: none; }
   border-radius: 4px;
   background: var(--surface-3);
 }
-.week.on   { background: rgba(204, 255, 51, 0.45); }
-.week.hot  { background: var(--accent); }
+.week.on   { background: color-mix(in srgb, var(--accent-2) 55%, transparent); }
+.week.hot  { background: var(--accent-2); box-shadow: 0 0 10px -2px var(--a2-glow); }
 .week-key {
   display: flex;
   justify-content: space-between;
@@ -505,6 +533,38 @@ tbody tr { border-top: 1px solid var(--border); }
 
 /* ── Settings ────────────────────────────────────────────── */
 .setting { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+
+.field-label {
+  display: block;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  margin-bottom: 9px;
+}
+.themes { display: flex; gap: 10px; flex-wrap: wrap; }
+.theme-swatch {
+  position: relative;
+  width: 46px; height: 46px;
+  padding: 0;
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-2);
+  cursor: pointer;
+  overflow: hidden;
+}
+/* Each swatch shows the pair: primary fills it, secondary takes the corner. */
+.theme-swatch i { position: absolute; inset: 0; background: var(--sw1); }
+.theme-swatch i::after {
+  content: '';
+  position: absolute;
+  right: 0; bottom: 0;
+  width: 55%; height: 55%;
+  background: var(--sw2);
+  clip-path: polygon(100% 0, 100% 100%, 0 100%);
+}
+.theme-swatch[aria-pressed="true"] { border-color: var(--text); }
 .segmented { display: flex; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-sm); padding: 3px; }
 .seg {
   min-width: 58px; min-height: 36px;

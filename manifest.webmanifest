@@ -1,7 +1,7 @@
 {
-  "name": "Lift Tracker",
-  "short_name": "Lifts",
-  "description": "A personal workout log with PRs and progress charts.",
+  "name": "4fordLifts",
+  "short_name": "4fordLifts",
+  "description": "A personal workout log with PRs, progress charts, and levels.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

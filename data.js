@@ -48,19 +48,26 @@
 
   /* ── Storage ───────────────────────────────────────────── */
   function load() {
-    var base = { v: 2, unit: 'lbs', sets: [], bodyweight: [], goals: {} };
+    var base = {
+      v: 3, unit: 'lbs', sets: [], bodyweight: [], goals: {},
+      profile: { name: '', theme: 'volt' }
+    };
     try {
       var raw = localStorage.getItem(KEY);
       if (!raw) return base;
       var p = JSON.parse(raw);
       if (!p || !Array.isArray(p.sets)) return base;
-      /* v1 had no bodyweight log. */
+      /* v1 had no bodyweight log; v2 had no profile. */
       return {
-        v: 2,
+        v: 3,
         unit: p.unit || 'lbs',
         sets: p.sets,
         bodyweight: Array.isArray(p.bodyweight) ? p.bodyweight : [],
-        goals: p.goals || {}
+        goals: p.goals || {},
+        profile: {
+          name: (p.profile && p.profile.name) || '',
+          theme: (p.profile && p.profile.theme) || 'volt'
+        }
       };
     } catch (e) {
       console.warn('Could not read saved data:', e);
@@ -218,9 +225,18 @@
     return 'That’s ' + label + '.';
   }
 
+  var THEMES = [
+    { id: 'volt',  label: 'Volt',  a1: '#ccff33', a2: '#b14aff' },
+    { id: 'ultra', label: 'Ultra', a1: '#b14aff', a2: '#2ee6d6' },
+    { id: 'ice',   label: 'Ice',   a1: '#2ee6d6', a2: '#ff4fd8' },
+    { id: 'ember', label: 'Ember', a1: '#ff9d2e', a2: '#b14aff' },
+    { id: 'neon',  label: 'Neon',  a1: '#ff2e97', a2: '#ccff33' }
+  ];
+
   window.LiftData = {
     KEY: KEY,
     LIBRARY: LIBRARY,
+    THEMES: THEMES,
     groupOf: function (name) { return GROUP_OF[name] || 'Other'; },
     load: load,
     save: save,
