@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0d0d0d">
+<meta name="theme-color" content="#08090a">
 <title>Lift Tracker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
@@ -16,10 +16,15 @@
 <body>
 
 <header class="topbar">
-  <h1>Lift Tracker</h1>
-  <div class="timer" id="timer" hidden>
-    <span class="timer-value" id="timerValue">0:00</span>
-    <button class="timer-stop" id="timerStop" type="button" aria-label="Stop rest timer">&times;</button>
+  <div class="wordmark">LIFTS</div>
+  <div class="topbar-right">
+    <div class="streak-chip" id="streakChip" hidden>
+      <span class="streak-n" id="streakN">0</span><span class="streak-w">wk</span>
+    </div>
+    <button class="timer" id="timer" type="button" hidden>
+      <span class="timer-dot"></span>
+      <span class="timer-value" id="timerValue">0:00</span>
+    </button>
   </div>
 </header>
 
@@ -27,21 +32,20 @@
 
   <!-- ── Log ───────────────────────────────────────────────── -->
   <section class="view" id="view-log">
-    <form id="setForm" autocomplete="off">
-      <div class="field">
-        <label for="f-exercise">Exercise</label>
-        <input id="f-exercise" name="exercise" list="exerciseList" required
-               placeholder="Bench Press" enterkeyhint="next">
-        <datalist id="exerciseList"></datalist>
-      </div>
 
+    <button type="button" class="picker-btn" id="pickerBtn">
+      <span class="picker-empty" id="pickerLabel">Choose an exercise</span>
+      <span class="picker-group" id="pickerGroup"></span>
+      <svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 10l4 4 4-4"/></svg>
+    </button>
+
+    <form id="setForm" autocomplete="off">
       <div class="row">
         <div class="field">
           <label for="f-weight">Weight <span class="unit-label">lbs</span></label>
           <div class="stepper">
             <button type="button" class="step" data-step="-5" aria-label="Decrease weight">&minus;</button>
-            <input id="f-weight" name="weight" type="number" inputmode="decimal"
-                   step="0.5" min="0" required placeholder="135">
+            <input id="f-weight" type="number" inputmode="decimal" step="0.5" min="0" required placeholder="0">
             <button type="button" class="step" data-step="5" aria-label="Increase weight">+</button>
           </div>
         </div>
@@ -49,47 +53,46 @@
           <label for="f-reps">Reps</label>
           <div class="stepper">
             <button type="button" class="step" data-step="-1" data-target="f-reps" aria-label="Decrease reps">&minus;</button>
-            <input id="f-reps" name="reps" type="number" inputmode="numeric"
-                   step="1" min="1" max="100" required placeholder="5">
+            <input id="f-reps" type="number" inputmode="numeric" step="1" min="1" max="200" required placeholder="0">
             <button type="button" class="step" data-step="1" data-target="f-reps" aria-label="Increase reps">+</button>
           </div>
         </div>
       </div>
 
       <details class="more">
-        <summary>More</summary>
+        <summary>RPE, date &amp; notes</summary>
         <div class="row">
           <div class="field">
             <label for="f-rpe">RPE <span class="hint">optional</span></label>
-            <input id="f-rpe" name="rpe" type="number" inputmode="decimal" step="0.5" min="1" max="10" placeholder="8">
+            <input id="f-rpe" type="number" inputmode="decimal" step="0.5" min="1" max="10" placeholder="8">
           </div>
           <div class="field">
             <label for="f-date">Date</label>
-            <input id="f-date" name="date" type="date" required>
+            <input id="f-date" type="date" required>
           </div>
         </div>
         <div class="field">
           <label for="f-notes">Notes <span class="hint">optional</span></label>
-          <input id="f-notes" name="notes" placeholder="felt heavy off the chest">
+          <input id="f-notes" placeholder="felt heavy off the chest">
         </div>
       </details>
 
       <div class="actions">
         <button type="submit" class="primary">Add set</button>
-        <button type="button" class="ghost" id="repeatBtn" disabled>Repeat last</button>
+        <button type="button" class="ghost" id="repeatBtn" disabled>Repeat</button>
       </div>
     </form>
 
-    <h2 class="section-title">
-      <span id="todayLabel">Today</span>
+    <div class="section-head">
+      <h2 id="todayLabel">Today</h2>
       <span class="section-meta" id="todayMeta"></span>
-    </h2>
+    </div>
     <div id="todayList" class="stack"></div>
   </section>
 
   <!-- ── History ───────────────────────────────────────────── -->
   <section class="view" id="view-history" hidden>
-    <h2 class="section-title">History</h2>
+    <div class="section-head"><h2>History</h2></div>
     <div id="historyList" class="stack"></div>
   </section>
 
@@ -102,9 +105,62 @@
     <div id="progressBody"></div>
   </section>
 
-  <!-- ── Data ──────────────────────────────────────────────── -->
-  <section class="view" id="view-data" hidden>
-    <h2 class="section-title">Settings</h2>
+  <!-- ── You ───────────────────────────────────────────────── -->
+  <section class="view" id="view-you" hidden>
+
+    <div class="level-card">
+      <div class="level-top">
+        <div>
+          <div class="level-rank" id="rankName">Untrained</div>
+          <div class="level-sub">Level <span id="levelN">1</span></div>
+        </div>
+        <div class="level-badge" id="levelBadge">1</div>
+      </div>
+      <div class="xp-bar"><div class="xp-fill" id="xpFill"></div></div>
+      <div class="xp-meta">
+        <span id="xpInto">0 XP</span>
+        <span id="xpNext">300 to next</span>
+      </div>
+      <div class="xp-breakdown" id="xpBreakdown"></div>
+    </div>
+
+    <div class="hero">
+      <div class="hero-label">Total weight lifted</div>
+      <div class="hero-value"><span id="tonnage">0</span> <span class="hero-unit unit-label">lbs</span></div>
+      <div class="hero-note" id="tonnageNote"></div>
+    </div>
+
+    <div class="tiles">
+      <div class="tile"><div class="tile-label">Current streak</div><div class="tile-value" id="streakCur">0 <span class="tile-unit">wks</span></div></div>
+      <div class="tile"><div class="tile-label">Best streak</div><div class="tile-value" id="streakBest">0 <span class="tile-unit">wks</span></div></div>
+      <div class="tile"><div class="tile-label">Sessions</div><div class="tile-value" id="statSessions">0</div></div>
+      <div class="tile"><div class="tile-label">PRs set</div><div class="tile-value" id="statPrs">0</div></div>
+    </div>
+
+    <div class="section-head"><h2>Training weeks</h2></div>
+    <div class="card" id="weekGrid"></div>
+
+    <div class="section-head">
+      <h2>Bodyweight</h2>
+      <span class="section-meta" id="bwMeta"></span>
+    </div>
+    <div class="card">
+      <form id="bwForm" class="bw-form" autocomplete="off">
+        <div class="field">
+          <label for="bw-weight">Weight <span class="unit-label">lbs</span></label>
+          <input id="bw-weight" type="number" inputmode="decimal" step="0.1" min="0" required placeholder="0">
+        </div>
+        <div class="field">
+          <label for="bw-date">Date</label>
+          <input id="bw-date" type="date" required>
+        </div>
+        <button type="submit" class="primary bw-submit">Log</button>
+      </form>
+    </div>
+    <div id="bwChart" class="chart-wrap"></div>
+    <div id="bwList" class="stack"></div>
+
+    <div class="section-head"><h2>Settings</h2></div>
     <div class="card">
       <div class="setting">
         <span>Units</span>
@@ -115,16 +171,16 @@
       </div>
     </div>
 
-    <h2 class="section-title">Your data</h2>
+    <div class="section-head"><h2>Your data</h2></div>
     <div class="card">
       <p class="muted small">
-        Everything is stored in this browser only. Nothing is uploaded anywhere.
-        Export regularly so you have a backup.
+        Stored in this browser only — nothing is uploaded. Export now and then
+        so you have a backup.
       </p>
       <div class="actions wrap">
-        <button type="button" class="ghost" id="exportJson">Export backup (.json)</button>
-        <button type="button" class="ghost" id="exportCsv">Export spreadsheet (.csv)</button>
-        <button type="button" class="ghost" id="importBtn">Import backup</button>
+        <button type="button" class="ghost" id="exportJson">Backup (.json)</button>
+        <button type="button" class="ghost" id="exportCsv">Export (.csv)</button>
+        <button type="button" class="ghost" id="importBtn">Import</button>
         <input type="file" id="importFile" accept="application/json,.json" hidden>
       </div>
       <div class="actions">
@@ -136,23 +192,38 @@
 
 </main>
 
+<!-- ── Exercise picker sheet ───────────────────────────────── -->
+<div class="sheet-backdrop" id="sheetBackdrop" hidden></div>
+<div class="sheet" id="sheet" hidden role="dialog" aria-modal="true" aria-label="Choose an exercise">
+  <div class="sheet-head">
+    <div class="sheet-grab"></div>
+    <div class="sheet-row">
+      <input id="sheetSearch" type="search" placeholder="Search exercises" autocomplete="off">
+      <button type="button" class="sheet-close" id="sheetClose" aria-label="Close">&times;</button>
+    </div>
+    <div class="chips" id="groupChips"></div>
+  </div>
+  <div class="sheet-body" id="sheetBody"></div>
+</div>
+
 <nav class="tabbar" role="tablist">
   <button role="tab" class="tab" data-view="log" aria-selected="true">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Log
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Log</span>
   </button>
   <button role="tab" class="tab" data-view="history" aria-selected="false">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg>History
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>History</span>
   </button>
   <button role="tab" class="tab" data-view="progress" aria-selected="false">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18l5-6 4 3 7-8"/></svg>Progress
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18l5-6 4 3 7-8"/></svg><span>Progress</span>
   </button>
-  <button role="tab" class="tab" data-view="data" aria-selected="false">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg>Data
+  <button role="tab" class="tab" data-view="you" aria-selected="false">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.4"/><path d="M5 20c0-3.6 3.1-5.6 7-5.6s7 2 7 5.6"/></svg><span>You</span>
   </button>
 </nav>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
+<script src="data.js"></script>
 <script src="chart.js"></script>
 <script src="app.js"></script>
 </body>

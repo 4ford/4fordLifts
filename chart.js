@@ -8,7 +8,7 @@
 
   var NS = 'http://www.w3.org/2000/svg';
   var PAD = { top: 18, right: 58, bottom: 26, left: 44 };
-  var HEIGHT = 240;
+  var HEIGHT = 230;
 
   function el(name, attrs) {
     var n = document.createElementNS(NS, name);
@@ -29,6 +29,8 @@
     for (var v = lo; v <= hi + step / 2; v += step) ticks.push(Math.round(v * 100) / 100);
     return { min: lo, max: hi, ticks: ticks };
   }
+
+  var uid = 0;
 
   function fmtDate(ms) {
     return new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
@@ -53,6 +55,10 @@
       t.textContent = opts.title;
       wrap.appendChild(t);
     }
+
+    var color = opts.color || 'var(--accent)';
+    /* Unique per render — two charts can sit in the DOM at once. */
+    var gradId = 'lt-fade-' + (uid++);
 
     var W = Math.max(280, wrap.clientWidth - 16);
     var H = HEIGHT;
@@ -84,9 +90,9 @@
 
     /* Soft fill under the line — decorative, kept well below the ink. */
     var defs = el('defs');
-    var grad = el('linearGradient', { id: 'lt-fade', x1: 0, y1: 0, x2: 0, y2: 1 });
-    grad.appendChild(el('stop', { offset: '0%', 'stop-color': 'var(--series-1)', 'stop-opacity': 0.22 }));
-    grad.appendChild(el('stop', { offset: '100%', 'stop-color': 'var(--series-1)', 'stop-opacity': 0 }));
+    var grad = el('linearGradient', { id: gradId, x1: 0, y1: 0, x2: 0, y2: 1 });
+    grad.appendChild(el('stop', { offset: '0%', 'stop-color': color, 'stop-opacity': 0.20 }));
+    grad.appendChild(el('stop', { offset: '100%', 'stop-color': color, 'stop-opacity': 0 }));
     defs.appendChild(grad);
     svg.appendChild(defs);
 
@@ -134,12 +140,12 @@
       svg.appendChild(el('path', {
         d: d + ' L' + sx(xMax).toFixed(1) + ' ' + (PAD.top + plotH) +
            ' L' + sx(xMin).toFixed(1) + ' ' + (PAD.top + plotH) + ' Z',
-        fill: 'url(#lt-fade)', stroke: 'none'
+        fill: 'url(#' + gradId + ')', stroke: 'none'
       }));
 
       svg.appendChild(el('path', {
         d: d, fill: 'none',
-        stroke: 'var(--series-1)', 'stroke-width': 2,
+        stroke: color, 'stroke-width': 2,
         'stroke-linecap': 'round', 'stroke-linejoin': 'round'
       }));
     }
@@ -155,8 +161,8 @@
     var dots = points.map(function (p) {
       var g = el('circle', {
         cx: sx(p.x), cy: sy(p.y), r: 4,
-        fill: 'var(--series-1)',
-        stroke: 'var(--surface-1)', 'stroke-width': 2
+        fill: color,
+        stroke: 'var(--surface)', 'stroke-width': 2
       });
       svg.appendChild(g);
       return g;
@@ -164,10 +170,12 @@
 
     /* One direct label, on the newest point only. */
     var last = points[points.length - 1];
+    /* PAD.right exists to hold this label, so always run it rightward
+       into that gutter rather than back over the line. */
     var lastLbl = el('text', {
-      x: Math.min(sx(last.x) + 9, W - 4), y: sy(last.y) + 4,
-      'text-anchor': sx(last.x) + 9 > W - PAD.right ? 'end' : 'start',
-      fill: 'var(--text-primary)', 'font-size': 12, 'font-weight': 600
+      x: sx(last.x) + 9, y: sy(last.y) + 4,
+      'text-anchor': 'start',
+      fill: 'var(--text)', 'font-size': 12, 'font-weight': 700
     });
     lastLbl.textContent = Math.round(last.y * 10) / 10;
     svg.appendChild(lastLbl);

@@ -3,13 +3,29 @@
 A personal workout log: record sets, see your PRs, and watch your estimated 1RM
 climb. Runs entirely in the browser — no build step, no server, no dependencies.
 
+**Live:** <https://lift-tracker-4ford.vercel.app>
+
 ## Features
 
-- Log sets (exercise, weight, reps, optional RPE and notes) with a rest timer
-- History grouped by session, with per-session volume
-- Per-exercise progress: estimated 1RM chart, best-by-reps table, PR badges
+- **Log** — pick a lift by muscle group or search, then log weight × reps with
+  optional RPE and notes. Prefills your last numbers; rest timer starts itself.
+- **History** — every session grouped by date, with volume per lift
+- **Progress** — per-exercise estimated 1RM chart, best-by-reps table, PR badges
+- **You** — level and XP, lifetime tonnage, training streak, 16-week grid,
+  and a bodyweight log with its own chart
 - Works offline and installs to your phone's home screen (PWA)
 - Export/import your data as JSON, export to CSV for spreadsheets
+
+## How XP works
+
+| Source | Rate |
+|---|---|
+| Volume | 1 XP per 50 lbs moved |
+| Showing up | 25 XP per session |
+| Beating a lift's previous best | 50 XP per PR |
+
+Each level costs more than the last (`300 × (level − 1)^1.45`), and every level
+carries a rank name from Untrained up to Legend.
 
 ## Running it locally
 
@@ -58,7 +74,8 @@ layer in `app.js` (`load`, `save`) is the only part that would need to change.
 |---|---|
 | `index.html` | Markup and view structure |
 | `styles.css` | All styling; the palette lives in `:root` |
-| `app.js` | State, storage, and rendering for each view |
+| `data.js` | Storage, exercise library, and the XP/streak/tonnage math |
+| `app.js` | Rendering and interaction for each view |
 | `chart.js` | Standalone SVG line chart with hover tooltips |
 | `sw.js` | Service worker — offline caching |
 | `manifest.webmanifest` | PWA metadata for home-screen install |

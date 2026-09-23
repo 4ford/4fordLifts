@@ -1,109 +1,52 @@
-/* Lift Tracker — all state lives in localStorage on this device. */
+/* Views and interaction. Data lives in data.js, charts in chart.js. */
 (function () {
   'use strict';
 
-  var KEY = 'lift-tracker/v1';
+  var D = window.LiftData;
+  var state = D.load();
+  var currentView = 'log';
+  var selected = '';          // exercise chosen in the picker
 
-  var COMMON = [
-    'Back Squat', 'Front Squat', 'Bench Press', 'Incline Bench Press',
-    'Overhead Press', 'Deadlift', 'Romanian Deadlift', 'Barbell Row',
-    'Pull-up', 'Chin-up', 'Dip', 'Lat Pulldown', 'Leg Press',
-    'Lunge', 'Hip Thrust', 'Bicep Curl', 'Tricep Extension',
-    'Lateral Raise', 'Calf Raise', 'Face Pull'
-  ];
-
-  /* ── State ─────────────────────────────────────────────── */
-  var state = load();
-
-  function load() {
-    try {
-      var raw = localStorage.getItem(KEY);
-      if (raw) {
-        var parsed = JSON.parse(raw);
-        if (parsed && Array.isArray(parsed.sets)) return parsed;
-      }
-    } catch (e) {
-      console.warn('Could not read saved data:', e);
-    }
-    return { v: 1, unit: 'lbs', sets: [] };
-  }
-
-  function save() {
-    try {
-      localStorage.setItem(KEY, JSON.stringify(state));
-    } catch (e) {
-      toast('Could not save — storage may be full');
-      console.error(e);
-    }
-  }
-
-  /* ── Helpers ───────────────────────────────────────────── */
-  function todayISO() {
-    var d = new Date();
-    return d.getFullYear() + '-' +
-           String(d.getMonth() + 1).padStart(2, '0') + '-' +
-           String(d.getDate()).padStart(2, '0');
-  }
-
-  /* Parse as local time — new Date('2026-09-23') would be UTC and
-     can land on the previous day west of Greenwich. */
-  function isoToMs(iso) {
-    var p = iso.split('-');
-    return new Date(+p[0], +p[1] - 1, +p[2]).getTime();
-  }
-
-  function fmtDay(iso) {
-    var ms = isoToMs(iso);
-    var t = isoToMs(todayISO());
-    var days = Math.round((t - ms) / 86400000);
-    if (days === 0) return 'Today';
-    if (days === 1) return 'Yesterday';
-    return new Date(ms).toLocaleDateString(undefined, {
-      weekday: 'short', month: 'short', day: 'numeric',
-      year: new Date(ms).getFullYear() === new Date().getFullYear() ? undefined : 'numeric'
-    });
-  }
-
-  /* Epley estimated one-rep max. */
-  function e1rm(weight, reps) {
-    return reps === 1 ? weight : weight * (1 + reps / 30);
-  }
-
+  /* ── Small helpers ─────────────────────────────────────── */
+  function $(id) { return document.getElementById(id); }
   function round(n) { return Math.round(n * 10) / 10; }
   function num(n) { return round(n).toLocaleString(); }
   function unit() { return state.unit; }
 
-  function exercises() {
-    var seen = {};
-    state.sets.forEach(function (s) { seen[s.exercise] = true; });
-    return Object.keys(seen).sort();
-  }
-
-  function setsFor(name) {
-    return state.sets.filter(function (s) { return s.exercise === name; });
-  }
-
-  function byDateDesc(a, b) { return a < b ? 1 : a > b ? -1 : 0; }
-
-  function escapeHtml(s) {
+  function esc(s) {
     return String(s).replace(/[&<>"']/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
     });
   }
 
+  function fmtDay(iso) {
+    var ms = D.isoToMs(iso);
+    var days = Math.round((D.isoToMs(D.todayISO()) - ms) / 86400000);
+    if (days === 0) return 'Today';
+    if (days === 1) return 'Yesterday';
+    var d = new Date(ms);
+    return d.toLocaleDateString(undefined, {
+      weekday: 'short', month: 'short', day: 'numeric',
+      year: d.getFullYear() === new Date().getFullYear() ? undefined : 'numeric'
+    });
+  }
+
+  function persist() {
+    if (!D.save(state)) toast('Could not save — storage may be full');
+  }
+
   /* ── Toast ─────────────────────────────────────────────── */
-  var toastEl = document.getElementById('toast');
-  var toastTimer;
-  function toast(msg) {
+  var toastEl = $('toast'), toastTimer;
+  function toast(msg, win) {
     toastEl.textContent = msg;
+    toastEl.classList.toggle('win', !!win);
     toastEl.classList.add('show');
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { toastEl.classList.remove('show'); }, 2200);
+    toastTimer = setTimeout(function () { toastEl.classList.remove('show'); }, win ? 3000 : 2200);
   }
 
   /* ── Rest timer ────────────────────────────────────────── */
-  var timerEl = document.getElementById('timer');
-  var timerValue = document.getElementById('timerValue');
+  var timerEl = $('timer'), timerValue = $('timerValue');
   var timerStart = null, timerInt = null;
 
   function startTimer() {
@@ -117,105 +60,230 @@
     var s = Math.floor((Date.now() - timerStart) / 1000);
     timerValue.textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
   }
-  function stopTimer() {
+  timerEl.addEventListener('click', function () {
     clearInterval(timerInt);
     timerEl.hidden = true;
-  }
-  document.getElementById('timerStop').addEventListener('click', stopTimer);
+  });
 
   /* ── Tabs ──────────────────────────────────────────────── */
-  var currentView = 'log';
   document.querySelectorAll('.tab').forEach(function (tab) {
     tab.addEventListener('click', function () { showView(tab.dataset.view); });
   });
 
   function showView(name) {
     currentView = name;
-    document.querySelectorAll('.view').forEach(function (v) {
-      v.hidden = v.id !== 'view-' + name;
-    });
+    document.querySelectorAll('.view').forEach(function (v) { v.hidden = v.id !== 'view-' + name; });
     document.querySelectorAll('.tab').forEach(function (t) {
       t.setAttribute('aria-selected', String(t.dataset.view === name));
     });
     window.scrollTo(0, 0);
     if (name === 'history') renderHistory();
     if (name === 'progress') renderProgress();
-    if (name === 'data') renderData();
+    if (name === 'you') renderYou();
   }
 
-  /* ── Log view ──────────────────────────────────────────── */
-  var form = document.getElementById('setForm');
-  var fDate = document.getElementById('f-date');
-  var fExercise = document.getElementById('f-exercise');
-  var fWeight = document.getElementById('f-weight');
-  var fReps = document.getElementById('f-reps');
-  var fRpe = document.getElementById('f-rpe');
-  var fNotes = document.getElementById('f-notes');
+  /* ── Exercise picker sheet ─────────────────────────────── */
+  var sheet = $('sheet'), backdrop = $('sheetBackdrop');
+  var sheetSearch = $('sheetSearch'), sheetBody = $('sheetBody'), groupChips = $('groupChips');
+  var activeGroup = 'Recent';
 
-  fDate.value = todayISO();
+  function recentExercises() {
+    var seen = {}, out = [];
+    state.sets.slice().reverse().forEach(function (s) {
+      if (!seen[s.exercise]) { seen[s.exercise] = true; out.push(s.exercise); }
+    });
+    return out;
+  }
+
+  function lastSetFor(name) {
+    for (var i = state.sets.length - 1; i >= 0; i--) {
+      if (state.sets[i].exercise === name) return state.sets[i];
+    }
+    return null;
+  }
+
+  function openSheet() {
+    activeGroup = recentExercises().length ? 'Recent' : 'Chest';
+    sheetSearch.value = '';
+    backdrop.hidden = false;
+    sheet.hidden = false;
+    document.body.style.overflow = 'hidden';
+    renderChips();
+    renderSheetList();
+  }
+
+  function closeSheet() {
+    backdrop.hidden = true;
+    sheet.hidden = true;
+    document.body.style.overflow = '';
+  }
+
+  $('pickerBtn').addEventListener('click', openSheet);
+  $('sheetClose').addEventListener('click', closeSheet);
+  backdrop.addEventListener('click', closeSheet);
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !sheet.hidden) closeSheet();
+  });
+
+  function renderChips() {
+    var groups = [];
+    if (recentExercises().length) groups.push('Recent');
+    D.LIBRARY.forEach(function (g) { groups.push(g.group); });
+
+    groupChips.innerHTML = '';
+    groups.forEach(function (g) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'chip';
+      b.textContent = g;
+      b.setAttribute('aria-pressed', String(g === activeGroup));
+      b.addEventListener('click', function () {
+        activeGroup = g;
+        sheetSearch.value = '';
+        renderChips();
+        renderSheetList();
+        sheetBody.scrollTop = 0;
+      });
+      groupChips.appendChild(b);
+    });
+  }
+
+  function renderSheetList() {
+    var q = sheetSearch.value.trim().toLowerCase();
+    sheetBody.innerHTML = '';
+
+    var sections = [];
+    if (q) {
+      /* Search spans everything: the library plus anything logged. */
+      var pool = [];
+      D.LIBRARY.forEach(function (g) { pool = pool.concat(g.exercises); });
+      recentExercises().forEach(function (n) { if (pool.indexOf(n) === -1) pool.push(n); });
+      var hits = pool.filter(function (n) { return n.toLowerCase().indexOf(q) > -1; });
+      sections.push({ title: hits.length ? 'Matches' : '', items: hits });
+    } else if (activeGroup === 'Recent') {
+      sections.push({ title: 'Recently logged', items: recentExercises() });
+    } else {
+      D.LIBRARY.forEach(function (g) {
+        if (g.group === activeGroup) sections.push({ title: g.group, items: g.exercises });
+      });
+    }
+
+    sections.forEach(function (sec) {
+      if (sec.title) {
+        var h = document.createElement('div');
+        h.className = 'sheet-group';
+        h.textContent = sec.title;
+        sheetBody.appendChild(h);
+      }
+      sec.items.forEach(function (name) {
+        var last = lastSetFor(name);
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'sheet-item';
+        b.innerHTML = '<span>' + esc(name) + '</span>' +
+          (last ? '<span class="recent">' + num(last.weight) + ' × ' + last.reps + '</span>' : '');
+        b.addEventListener('click', function () { choose(name); });
+        sheetBody.appendChild(b);
+      });
+    });
+
+    /* Anything not in the library can still be logged. */
+    var exact = q && sections.some(function (s) {
+      return s.items.some(function (n) { return n.toLowerCase() === q; });
+    });
+    if (q && !exact) {
+      var custom = document.createElement('button');
+      custom.type = 'button';
+      custom.className = 'sheet-item';
+      custom.innerHTML = '<span>Use “' + esc(sheetSearch.value.trim()) + '”</span>' +
+                         '<span class="recent">custom</span>';
+      custom.addEventListener('click', function () { choose(sheetSearch.value.trim()); });
+      sheetBody.appendChild(custom);
+    }
+  }
+
+  sheetSearch.addEventListener('input', renderSheetList);
+
+  function choose(name) {
+    selected = name;
+    var btn = $('pickerBtn');
+    btn.classList.add('chosen');
+    $('pickerLabel').textContent = name;
+    $('pickerGroup').textContent = D.groupOf(name) === 'Other' ? '' : D.groupOf(name);
+    closeSheet();
+
+    /* Prefill with the last numbers used for this lift. */
+    var last = lastSetFor(name);
+    if (last) {
+      $('f-weight').value = last.weight;
+      $('f-reps').value = last.reps;
+    }
+    renderLog();
+  }
+
+  /* ── Log ───────────────────────────────────────────────── */
+  var form = $('setForm'), fDate = $('f-date');
+  fDate.value = D.todayISO();
 
   document.querySelectorAll('.step').forEach(function (btn) {
     btn.addEventListener('click', function () {
-      var input = document.getElementById(btn.dataset.target || 'f-weight');
-      var next = (parseFloat(input.value) || 0) + parseFloat(btn.dataset.step);
-      input.value = Math.max(0, round(next));
+      var input = $(btn.dataset.target || 'f-weight');
+      input.value = Math.max(0, round((parseFloat(input.value) || 0) + parseFloat(btn.dataset.step)));
     });
   });
 
   form.addEventListener('submit', function (e) {
     e.preventDefault();
-    var exercise = fExercise.value.trim();
-    var weight = parseFloat(fWeight.value);
-    var reps = parseInt(fReps.value, 10);
-    if (!exercise || !isFinite(weight) || !reps) return;
+    if (!selected) { openSheet(); return; }
+
+    var weight = parseFloat($('f-weight').value);
+    var reps = parseInt($('f-reps').value, 10);
+    if (!isFinite(weight) || !reps) return;
+
+    var before = D.levelFor(D.xpBreakdown(state.sets).total).level;
+    var prevBest = bestE1rm(selected);
 
     state.sets.push({
       id: Date.now() + '-' + Math.random().toString(36).slice(2, 7),
-      date: fDate.value || todayISO(),
-      exercise: exercise,
+      date: fDate.value || D.todayISO(),
+      exercise: selected,
       weight: weight,
       reps: reps,
-      rpe: fRpe.value ? parseFloat(fRpe.value) : null,
-      notes: fNotes.value.trim() || ''
+      rpe: $('f-rpe').value ? parseFloat($('f-rpe').value) : null,
+      notes: $('f-notes').value.trim() || ''
     });
-    save();
+    persist();
 
-    fNotes.value = '';
+    $('f-notes').value = '';
     startTimer();
     renderLog();
-    refreshExerciseList();
-    toast('Set added');
+    renderStreakChip();
+
+    var after = D.levelFor(D.xpBreakdown(state.sets).total).level;
+    var isPr = prevBest > 0 && D.e1rm(weight, reps) > prevBest + 0.01;
+
+    if (after > before) toast('LEVEL UP — ' + D.levelFor(D.xpBreakdown(state.sets).total).rank, true);
+    else if (isPr) toast('NEW PR on ' + selected, true);
+    else toast('Set added');
   });
 
-  document.getElementById('repeatBtn').addEventListener('click', function () {
+  $('repeatBtn').addEventListener('click', function () {
     var last = state.sets[state.sets.length - 1];
     if (!last) return;
-    fExercise.value = last.exercise;
-    fWeight.value = last.weight;
-    fReps.value = last.reps;
-    if (last.rpe) fRpe.value = last.rpe;
+    if (!selected) choose(last.exercise);
+    $('f-weight').value = last.weight;
+    $('f-reps').value = last.reps;
     form.requestSubmit();
   });
 
-  function refreshExerciseList() {
-    var list = document.getElementById('exerciseList');
-    var names = exercises();
-    COMMON.forEach(function (c) { if (names.indexOf(c) === -1) names.push(c); });
-    list.innerHTML = names.map(function (n) {
-      return '<option value="' + escapeHtml(n) + '">';
-    }).join('');
-  }
-
-  /* Best e1RM ever recorded for an exercise — used for the PR badge. */
   function bestE1rm(name) {
-    return setsFor(name).reduce(function (m, s) {
-      return Math.max(m, e1rm(s.weight, s.reps));
+    return state.sets.reduce(function (m, s) {
+      return s.exercise === name ? Math.max(m, D.e1rm(s.weight, s.reps)) : m;
     }, 0);
   }
 
-  function renderSetGroups(container, sets, showDelete) {
-    var groups = {};
-    var order = [];
+  function renderSetGroups(container, sets) {
+    var groups = {}, order = [];
     sets.forEach(function (s) {
       if (!groups[s.exercise]) { groups[s.exercise] = []; order.push(s.exercise); }
       groups[s.exercise].push(s);
@@ -225,42 +293,43 @@
     order.forEach(function (name) {
       var rows = groups[name];
       var best = bestE1rm(name);
-      var volume = rows.reduce(function (v, s) { return v + s.weight * s.reps; }, 0);
 
       var wrap = document.createElement('div');
       wrap.className = 'group';
-
-      var head = document.createElement('div');
-      head.className = 'group-head';
-      head.innerHTML = '<span>' + escapeHtml(name) + '</span>' +
-        '<span class="meta">' + rows.length + ' set' + (rows.length > 1 ? 's' : '') +
-        ' &middot; ' + num(volume) + ' ' + unit() + '</span>';
-      wrap.appendChild(head);
+      wrap.innerHTML = '<div class="group-head"><span>' + esc(name) + '</span>' +
+        '<span class="meta">' + rows.length + ' set' + (rows.length === 1 ? '' : 's') +
+        ' · ' + num(D.volume(rows)) + ' ' + unit() + '</span></div>';
 
       rows.forEach(function (s, i) {
-        var est = e1rm(s.weight, s.reps);
+        var est = D.e1rm(s.weight, s.reps);
         var isPr = best > 0 && Math.abs(est - best) < 0.01;
 
         var row = document.createElement('div');
         row.className = 'set-row';
         row.innerHTML =
           '<span class="set-n">' + (i + 1) + '</span>' +
-          '<span class="set-main">' + num(s.weight) + ' ' + unit() + ' &times; ' + s.reps +
-            (s.rpe ? ' <span class="set-sub">@ RPE ' + s.rpe + '</span>' : '') +
-            (s.notes ? '<div class="set-sub">' + escapeHtml(s.notes) + '</div>' : '') +
+          '<span class="set-main"><b>' + num(s.weight) + '</b> ' + unit() + ' × ' + s.reps +
+            (s.rpe ? ' <span class="set-sub">@ ' + s.rpe + '</span>' : '') +
+            (s.notes ? '<div class="set-sub">' + esc(s.notes) + '</div>' : '') +
           '</span>' +
           (isPr ? '<span class="pr-badge">PR</span>' : '') +
           '<span class="set-e1rm">' + num(est) + '</span>';
 
-        if (showDelete) {
-          var del = document.createElement('button');
-          del.className = 'del';
-          del.type = 'button';
-          del.innerHTML = '&times;';
-          del.setAttribute('aria-label', 'Delete set');
-          del.addEventListener('click', function () { deleteSet(s.id); });
-          row.appendChild(del);
-        }
+        var del = document.createElement('button');
+        del.className = 'del';
+        del.type = 'button';
+        del.innerHTML = '&times;';
+        del.setAttribute('aria-label', 'Delete set');
+        del.addEventListener('click', function () {
+          state.sets = state.sets.filter(function (x) { return x.id !== s.id; });
+          persist();
+          renderLog();
+          renderStreakChip();
+          if (currentView === 'history') renderHistory();
+          if (currentView === 'progress') renderProgress();
+          toast('Set deleted');
+        });
+        row.appendChild(del);
         wrap.appendChild(row);
       });
 
@@ -268,210 +337,293 @@
     });
   }
 
-  function deleteSet(id) {
-    state.sets = state.sets.filter(function (s) { return s.id !== id; });
-    save();
-    renderLog();
-    if (currentView === 'history') renderHistory();
-    if (currentView === 'progress') renderProgress();
-    toast('Set deleted');
-  }
-
   function renderLog() {
-    var date = fDate.value || todayISO();
+    var date = fDate.value || D.todayISO();
     var sets = state.sets.filter(function (s) { return s.date === date; });
-    var list = document.getElementById('todayList');
 
-    document.getElementById('todayLabel').textContent = fmtDay(date);
-    document.getElementById('repeatBtn').disabled = state.sets.length === 0;
+    $('todayLabel').textContent = fmtDay(date);
+    $('repeatBtn').disabled = state.sets.length === 0;
 
+    var list = $('todayList');
     if (!sets.length) {
-      list.innerHTML = '<div class="empty">No sets logged yet.</div>';
-      document.getElementById('todayMeta').textContent = '';
+      list.innerHTML = '<div class="empty">Nothing logged yet.</div>';
+      $('todayMeta').textContent = '';
       return;
     }
-
-    var volume = sets.reduce(function (v, s) { return v + s.weight * s.reps; }, 0);
-    document.getElementById('todayMeta').textContent =
-      sets.length + ' sets · ' + num(volume) + ' ' + unit() + ' total';
-
-    renderSetGroups(list, sets, true);
+    $('todayMeta').textContent = sets.length + ' sets · ' + num(D.volume(sets)) + ' ' + unit();
+    renderSetGroups(list, sets);
   }
 
   fDate.addEventListener('change', renderLog);
 
-  /* ── History view ──────────────────────────────────────── */
+  /* ── History ───────────────────────────────────────────── */
   function renderHistory() {
-    var list = document.getElementById('historyList');
-    var dates = {};
-    state.sets.forEach(function (s) { (dates[s.date] = dates[s.date] || []).push(s); });
-    var keys = Object.keys(dates).sort(byDateDesc);
+    var list = $('historyList');
+    var byDate = {};
+    state.sets.forEach(function (s) { (byDate[s.date] = byDate[s.date] || []).push(s); });
+    var dates = Object.keys(byDate).sort().reverse();
 
-    if (!keys.length) {
-      list.innerHTML = '<div class="empty">Nothing logged yet.<br>Add a set on the Log tab.</div>';
+    if (!dates.length) {
+      list.innerHTML = '<div class="empty">No sessions yet.<br>Log a set to get started.</div>';
       return;
     }
 
     list.innerHTML = '';
-    keys.forEach(function (date) {
-      var sets = dates[date];
-      var volume = sets.reduce(function (v, s) { return v + s.weight * s.reps; }, 0);
+    dates.forEach(function (date, i) {
+      var sets = byDate[date];
       var names = sets.map(function (s) { return s.exercise; })
-                      .filter(function (v, i, a) { return a.indexOf(v) === i; });
+                      .filter(function (v, j, a) { return a.indexOf(v) === j; });
 
       var det = document.createElement('details');
       det.className = 'group';
+      if (i === 0) det.open = true;
 
       var sum = document.createElement('summary');
       sum.className = 'group-head';
-      sum.style.cursor = 'pointer';
-      sum.innerHTML = '<span>' + fmtDay(date) + '</span>' +
-        '<span class="meta">' + names.length + ' exercise' + (names.length > 1 ? 's' : '') +
-        ' &middot; ' + num(volume) + ' ' + unit() + '</span>';
+      sum.innerHTML = '<span>' + fmtDay(date) + '</span><span class="meta">' +
+        names.length + ' lift' + (names.length > 1 ? 's' : '') + ' · ' +
+        num(D.volume(sets)) + ' ' + unit() + '</span>';
       det.appendChild(sum);
 
       var body = document.createElement('div');
-      renderSetGroups(body, sets, true);
+      renderSetGroups(body, sets);
       det.appendChild(body);
-
       list.appendChild(det);
     });
   }
 
-  /* ── Progress view ─────────────────────────────────────── */
-  var pSelect = document.getElementById('p-exercise');
+  /* ── Progress ──────────────────────────────────────────── */
+  var pSelect = $('p-exercise');
   pSelect.addEventListener('change', renderProgress);
 
   function renderProgress() {
-    var names = exercises();
-    var body = document.getElementById('progressBody');
+    var names = recentExercises().sort();
+    var body = $('progressBody');
 
     if (!names.length) {
       pSelect.innerHTML = '';
-      body.innerHTML = '<div class="empty">Log a few sets and your progress shows up here.</div>';
+      body.innerHTML = '<div class="empty">Log a few sets and your charts appear here.</div>';
       return;
     }
 
     var chosen = names.indexOf(pSelect.value) > -1 ? pSelect.value : names[0];
     pSelect.innerHTML = names.map(function (n) {
-      return '<option' + (n === chosen ? ' selected' : '') + '>' + escapeHtml(n) + '</option>';
+      return '<option' + (n === chosen ? ' selected' : '') + '>' + esc(n) + '</option>';
     }).join('');
 
-    var sets = setsFor(chosen);
+    var sets = state.sets.filter(function (s) { return s.exercise === chosen; });
 
     /* One point per session: that day's best estimated 1RM. */
     var perDay = {};
     sets.forEach(function (s) {
-      var est = e1rm(s.weight, s.reps);
-      if (!perDay[s.date] || est > perDay[s.date].est) {
-        perDay[s.date] = { est: est, set: s };
-      }
+      var est = D.e1rm(s.weight, s.reps);
+      if (!perDay[s.date] || est > perDay[s.date].est) perDay[s.date] = { est: est, set: s };
     });
     var days = Object.keys(perDay).sort();
     var points = days.map(function (d) {
       return {
-        x: isoToMs(d),
-        y: round(perDay[d].est),
-        label: num(perDay[d].est) + ' ' + unit() + ' est. 1RM' +
-               '<br>' + num(perDay[d].set.weight) + ' × ' + perDay[d].set.reps
+        x: D.isoToMs(d), y: round(perDay[d].est),
+        label: num(perDay[d].est) + ' ' + unit() + ' est. 1RM<br>' +
+               num(perDay[d].set.weight) + ' × ' + perDay[d].set.reps
       };
     });
 
     var bestEst = Math.max.apply(null, points.map(function (p) { return p.y; }));
     var heaviest = sets.reduce(function (m, s) { return s.weight > m.weight ? s : m; }, sets[0]);
-    var volume = sets.reduce(function (v, s) { return v + s.weight * s.reps; }, 0);
 
     body.innerHTML =
       '<div class="tiles">' +
         tile('Est. 1RM', num(bestEst), unit()) +
-        tile('Heaviest set', num(heaviest.weight) + ' × ' + heaviest.reps, '') +
-        tile('Total volume', num(volume), unit()) +
+        tile('Heaviest', num(heaviest.weight) + '×' + heaviest.reps, '') +
+        tile('Volume', num(D.volume(sets)), unit()) +
         tile('Sessions', days.length, '') +
       '</div>' +
       '<div class="chart-wrap" id="chartWrap"></div>' +
       '<button type="button" class="table-toggle" id="tableToggle">Show data table</button>' +
       '<div id="tableBody" hidden></div>' +
-      '<h2 class="section-title">Best by reps</h2>' +
+      '<div class="section-head"><h2>Best by reps</h2></div>' +
       prTable(sets);
 
-    window.LiftChart.render(
-      document.getElementById('chartWrap'),
-      points,
-      { title: 'Estimated 1RM — ' + chosen + ' (' + unit() + ')' }
-    );
+    window.LiftChart.render($('chartWrap'), points, {
+      title: 'Estimated 1RM — ' + chosen + ' (' + unit() + ')'
+    });
 
-    var tableBody = document.getElementById('tableBody');
-    tableBody.innerHTML = sessionTable(days, perDay);
-    document.getElementById('tableToggle').addEventListener('click', function () {
-      tableBody.hidden = !tableBody.hidden;
-      this.textContent = tableBody.hidden ? 'Show data table' : 'Hide data table';
+    var tb = $('tableBody');
+    tb.innerHTML = '<div class="card"><table><thead><tr><th>Date</th><th>Top set</th>' +
+      '<th>Est. 1RM</th></tr></thead><tbody>' +
+      days.slice().reverse().map(function (d) {
+        return '<tr><td>' + fmtDay(d) + '</td><td>' + num(perDay[d].set.weight) +
+               ' × ' + perDay[d].set.reps + '</td><td>' + num(perDay[d].est) + '</td></tr>';
+      }).join('') + '</tbody></table></div>';
+
+    $('tableToggle').addEventListener('click', function () {
+      tb.hidden = !tb.hidden;
+      this.textContent = tb.hidden ? 'Show data table' : 'Hide data table';
     });
   }
 
   function tile(label, value, u) {
-    return '<div class="tile"><div class="tile-label">' + label + '</div>' +
-           '<div class="tile-value">' + value +
-           (u ? ' <span class="tile-unit">' + u + '</span>' : '') + '</div></div>';
-  }
-
-  function sessionTable(days, perDay) {
-    return '<div class="card"><table><thead><tr>' +
-      '<th>Date</th><th>Top set</th><th>Est. 1RM</th></tr></thead><tbody>' +
-      days.slice().reverse().map(function (d) {
-        var p = perDay[d];
-        return '<tr><td>' + fmtDay(d) + '</td><td>' +
-          num(p.set.weight) + ' × ' + p.set.reps + '</td><td>' +
-          num(p.est) + '</td></tr>';
-      }).join('') + '</tbody></table></div>';
+    return '<div class="tile"><div class="tile-label">' + label + '</div><div class="tile-value">' +
+           value + (u ? ' <span class="tile-unit">' + u + '</span>' : '') + '</div></div>';
   }
 
   function prTable(sets) {
     var best = {};
-    sets.forEach(function (s) {
-      if (!best[s.reps] || s.weight > best[s.reps].weight) best[s.reps] = s;
-    });
+    sets.forEach(function (s) { if (!best[s.reps] || s.weight > best[s.reps].weight) best[s.reps] = s; });
     var reps = Object.keys(best).map(Number).sort(function (a, b) { return a - b; });
     if (!reps.length) return '';
-
-    return '<div class="card"><table><thead><tr>' +
-      '<th>Reps</th><th>Weight</th><th>Date</th></tr></thead><tbody>' +
-      reps.map(function (r) {
+    return '<div class="card"><table><thead><tr><th>Reps</th><th>Weight</th><th>When</th>' +
+      '</tr></thead><tbody>' + reps.map(function (r) {
         return '<tr><td>' + r + '</td><td>' + num(best[r].weight) + ' ' + unit() +
                '</td><td>' + fmtDay(best[r].date) + '</td></tr>';
       }).join('') + '</tbody></table></div>';
   }
 
-  /* Re-render the chart when the viewport changes width. */
-  var resizeTimer;
-  window.addEventListener('resize', function () {
-    if (currentView !== 'progress') return;
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(renderProgress, 150);
-  });
+  /* ── You ───────────────────────────────────────────────── */
+  function renderYou() {
+    var xp = D.xpBreakdown(state.sets);
+    var lv = D.levelFor(xp.total);
+    var st = D.streak(state.sets);
+    var total = D.volume(state.sets);
 
-  /* ── Data view ─────────────────────────────────────────── */
-  function renderData() {
+    $('rankName').textContent = lv.rank;
+    $('levelN').textContent = lv.level;
+    $('levelBadge').textContent = lv.level;
+    $('xpInto').textContent = num(xp.total) + ' XP';
+    $('xpNext').textContent = num(lv.need - lv.into) + ' to level ' + (lv.level + 1);
+    $('xpBreakdown').innerHTML =
+      '<span><b>' + num(xp.volume) + '</b> from volume</span>' +
+      '<span><b>' + num(xp.sessions) + '</b> from sessions</span>' +
+      '<span><b>' + num(xp.prs) + '</b> from ' + xp.prCount + ' PRs</span>';
+    /* Next frame, so the bar animates from empty rather than jumping. */
+    requestAnimationFrame(function () { $('xpFill').style.width = (lv.pct * 100) + '%'; });
+
+    $('tonnage').textContent = num(total);
+    $('tonnageNote').textContent = state.unit === 'lbs' ? D.compare(total) : D.compare(total * 2.205);
+
+    $('streakCur').innerHTML = st.current + ' <span class="tile-unit">wks</span>';
+    $('streakBest').innerHTML = st.best + ' <span class="tile-unit">wks</span>';
+    $('statSessions').textContent = D.sessionDates(state.sets).length;
+    $('statPrs').textContent = xp.prCount;
+
+    renderWeeks();
+    renderBodyweight();
+
     document.querySelectorAll('.seg').forEach(function (b) {
       b.setAttribute('aria-pressed', String(b.dataset.unit === state.unit));
     });
-    document.getElementById('dataStats').textContent =
-      state.sets.length + ' sets across ' + exercises().length + ' exercises.';
+    $('dataStats').textContent = state.sets.length + ' sets · ' +
+      recentExercises().length + ' exercises · ' + state.bodyweight.length + ' weigh-ins';
   }
 
+  /* Last 16 weeks, shaded by how many sessions each contained. */
+  function renderWeeks() {
+    var counts = {};
+    state.sets.forEach(function (s) {
+      var w = Math.floor(D.isoToMs(s.date) / 604800000);
+      (counts[w] = counts[w] || {})[s.date] = true;
+    });
+
+    var nowWeek = Math.floor(D.isoToMs(D.todayISO()) / 604800000);
+    var cells = '';
+    for (var i = 15; i >= 0; i--) {
+      var n = Object.keys(counts[nowWeek - i] || {}).length;
+      cells += '<div class="week' + (n >= 3 ? ' hot' : n > 0 ? ' on' : '') +
+               '" title="' + n + ' session' + (n === 1 ? '' : 's') + '"></div>';
+    }
+    $('weekGrid').innerHTML = '<div class="weeks">' + cells + '</div>' +
+      '<div class="week-key"><span>16 weeks ago</span><span>This week</span></div>';
+  }
+
+  /* ── Bodyweight ────────────────────────────────────────── */
+  var bwForm = $('bwForm');
+  $('bw-date').value = D.todayISO();
+
+  bwForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var w = parseFloat($('bw-weight').value);
+    var date = $('bw-date').value || D.todayISO();
+    if (!isFinite(w) || w <= 0) return;
+
+    /* One reading per day — a re-log replaces it. */
+    state.bodyweight = state.bodyweight.filter(function (b) { return b.date !== date; });
+    state.bodyweight.push({ id: date, date: date, weight: w });
+    state.bodyweight.sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+    persist();
+
+    $('bw-weight').value = '';
+    renderYou();
+    toast('Weight logged');
+  });
+
+  function renderBodyweight() {
+    var log = state.bodyweight;
+    var meta = $('bwMeta');
+
+    if (!log.length) {
+      meta.textContent = '';
+      $('bwChart').innerHTML = '<div class="empty">Log your weight to see the trend.</div>';
+      $('bwList').innerHTML = '';
+      return;
+    }
+
+    var latest = log[log.length - 1];
+    var first = log[0];
+    var delta = latest.weight - first.weight;
+    meta.textContent = num(latest.weight) + ' ' + unit() +
+      (log.length > 1 ? '  ·  ' + (delta >= 0 ? '+' : '') + num(delta) + ' overall' : '');
+
+    window.LiftChart.render($('bwChart'), log.map(function (b) {
+      return { x: D.isoToMs(b.date), y: b.weight, label: num(b.weight) + ' ' + unit() };
+    }), { title: 'Bodyweight (' + unit() + ')', color: 'var(--cyan)' });
+
+    /* Just the recent ones — the chart covers the rest. */
+    var recent = log.slice(-5).reverse();
+    var wrap = document.createElement('div');
+    wrap.className = 'group';
+    recent.forEach(function (b) {
+      var row = document.createElement('div');
+      row.className = 'set-row';
+      row.innerHTML = '<span class="set-main"><b>' + num(b.weight) + '</b> ' + unit() +
+                      '</span><span class="set-e1rm">' + fmtDay(b.date) + '</span>';
+      var del = document.createElement('button');
+      del.className = 'del';
+      del.type = 'button';
+      del.innerHTML = '&times;';
+      del.setAttribute('aria-label', 'Delete entry');
+      del.addEventListener('click', function () {
+        state.bodyweight = state.bodyweight.filter(function (x) { return x.date !== b.date; });
+        persist();
+        renderYou();
+      });
+      row.appendChild(del);
+      wrap.appendChild(row);
+    });
+    $('bwList').innerHTML = '';
+    $('bwList').appendChild(wrap);
+  }
+
+  /* ── Streak chip ───────────────────────────────────────── */
+  function renderStreakChip() {
+    var st = D.streak(state.sets);
+    $('streakChip').hidden = st.current < 1;
+    $('streakN').textContent = st.current;
+  }
+
+  /* ── Settings & data ───────────────────────────────────── */
   document.querySelectorAll('.seg').forEach(function (b) {
     b.addEventListener('click', function () {
       state.unit = b.dataset.unit;
-      save();
+      persist();
       document.querySelectorAll('.unit-label').forEach(function (u) { u.textContent = state.unit; });
-      renderData();
+      renderYou();
       renderLog();
-      toast('Units set to ' + state.unit + ' (existing numbers are unchanged)');
+      toast('Units set to ' + state.unit + ' — existing numbers unchanged');
     });
   });
 
   function download(filename, text, type) {
-    var blob = new Blob([text], { type: type });
-    var url = URL.createObjectURL(blob);
+    var url = URL.createObjectURL(new Blob([text], { type: type }));
     var a = document.createElement('a');
     a.href = url;
     a.download = filename;
@@ -481,24 +633,24 @@
     setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
   }
 
-  document.getElementById('exportJson').addEventListener('click', function () {
-    download('lift-tracker-' + todayISO() + '.json', JSON.stringify(state, null, 2), 'application/json');
+  $('exportJson').addEventListener('click', function () {
+    download('lift-tracker-' + D.todayISO() + '.json', JSON.stringify(state, null, 2), 'application/json');
   });
 
-  document.getElementById('exportCsv').addEventListener('click', function () {
-    var rows = [['date', 'exercise', 'weight', 'unit', 'reps', 'rpe', 'est_1rm', 'notes']];
+  $('exportCsv').addEventListener('click', function () {
+    var rows = [['date', 'muscle_group', 'exercise', 'weight', 'unit', 'reps', 'rpe', 'est_1rm', 'notes']];
     state.sets.slice().sort(function (a, b) { return a.date < b.date ? -1 : 1; }).forEach(function (s) {
-      rows.push([s.date, s.exercise, s.weight, state.unit, s.reps, s.rpe || '',
-                 round(e1rm(s.weight, s.reps)), s.notes || '']);
+      rows.push([s.date, D.groupOf(s.exercise), s.exercise, s.weight, state.unit,
+                 s.reps, s.rpe || '', round(D.e1rm(s.weight, s.reps)), s.notes || '']);
     });
-    var csv = rows.map(function (r) {
-      return r.map(function (c) { return '"' + String(c).replace(/"/g, '""') + '"'; }).join(',');
-    }).join('\n');
-    download('lift-tracker-' + todayISO() + '.csv', csv, 'text/csv');
+    download('lift-tracker-' + D.todayISO() + '.csv',
+      rows.map(function (r) {
+        return r.map(function (c) { return '"' + String(c).replace(/"/g, '""') + '"'; }).join(',');
+      }).join('\n'), 'text/csv');
   });
 
-  var importFile = document.getElementById('importFile');
-  document.getElementById('importBtn').addEventListener('click', function () { importFile.click(); });
+  var importFile = $('importFile');
+  $('importBtn').addEventListener('click', function () { importFile.click(); });
 
   importFile.addEventListener('change', function () {
     var file = importFile.files[0];
@@ -507,46 +659,60 @@
     reader.onload = function () {
       try {
         var data = JSON.parse(reader.result);
-        if (!data || !Array.isArray(data.sets)) throw new Error('Not a Lift Tracker backup');
+        if (!data || !Array.isArray(data.sets)) throw new Error('Not a backup file');
         if (state.sets.length &&
-            !confirm('Replace your ' + state.sets.length + ' existing sets with ' +
+            !confirm('Replace your ' + state.sets.length + ' sets with ' +
                      data.sets.length + ' from this file?')) return;
-        state = { v: 1, unit: data.unit || 'lbs', sets: data.sets };
-        save();
+        state = {
+          v: 2, unit: data.unit || 'lbs', sets: data.sets,
+          bodyweight: Array.isArray(data.bodyweight) ? data.bodyweight : [],
+          goals: data.goals || {}
+        };
+        persist();
         boot();
         toast('Imported ' + data.sets.length + ' sets');
-      } catch (e) {
+      } catch (err) {
         toast('That file could not be read');
-        console.error(e);
+        console.error(err);
       }
     };
     reader.readAsText(file);
     importFile.value = '';
   });
 
-  document.getElementById('clearBtn').addEventListener('click', function () {
-    if (!state.sets.length) return toast('Nothing to delete');
-    if (!confirm('Delete all ' + state.sets.length + ' sets? This cannot be undone.')) return;
-    if (!confirm('Really delete everything? Export a backup first if you might want it.')) return;
-    state = { v: 1, unit: state.unit, sets: [] };
-    save();
+  $('clearBtn').addEventListener('click', function () {
+    if (!state.sets.length && !state.bodyweight.length) return toast('Nothing to delete');
+    if (!confirm('Delete everything? This cannot be undone.')) return;
+    if (!confirm('Really? Export a backup first if there is any chance you want it.')) return;
+    state = { v: 2, unit: state.unit, sets: [], bodyweight: [], goals: {} };
+    persist();
     boot();
     toast('All data deleted');
+  });
+
+  /* Re-render charts when the viewport width changes. */
+  var resizeTimer;
+  window.addEventListener('resize', function () {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function () {
+      if (currentView === 'progress') renderProgress();
+      if (currentView === 'you') renderYou();
+    }, 150);
   });
 
   /* ── Boot ──────────────────────────────────────────────── */
   function boot() {
     document.querySelectorAll('.unit-label').forEach(function (u) { u.textContent = state.unit; });
-    refreshExerciseList();
     renderLog();
-    renderData();
+    renderStreakChip();
     if (currentView === 'history') renderHistory();
     if (currentView === 'progress') renderProgress();
+    if (currentView === 'you') renderYou();
   }
 
   boot();
 
   if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
-    navigator.serviceWorker.register('sw.js').catch(function () { /* offline support is optional */ });
+    navigator.serviceWorker.register('sw.js').catch(function () { /* optional */ });
   }
 })();

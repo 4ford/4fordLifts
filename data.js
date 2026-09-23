@@ -1,0 +1,238 @@
+/* Storage, the exercise library, and all the derived numbers
+   (tonnage, streaks, XP) that the views read. */
+(function () {
+  'use strict';
+
+  var KEY = 'lift-tracker/v1';
+
+  /* ── Exercise library ──────────────────────────────────── */
+  var LIBRARY = [
+    { group: 'Chest', exercises: [
+      'Bench Press', 'Incline Bench Press', 'Decline Bench Press',
+      'Dumbbell Bench Press', 'Incline Dumbbell Press', 'Dumbbell Fly',
+      'Cable Fly', 'Machine Chest Press', 'Pec Deck', 'Push-up', 'Dip'
+    ]},
+    { group: 'Back', exercises: [
+      'Deadlift', 'Barbell Row', 'Pendlay Row', 'Dumbbell Row',
+      'T-Bar Row', 'Seated Cable Row', 'Lat Pulldown', 'Pull-up',
+      'Chin-up', 'Rack Pull', 'Shrug', 'Face Pull', 'Straight-Arm Pulldown'
+    ]},
+    { group: 'Shoulders', exercises: [
+      'Overhead Press', 'Push Press', 'Dumbbell Shoulder Press',
+      'Arnold Press', 'Machine Shoulder Press', 'Lateral Raise',
+      'Cable Lateral Raise', 'Front Raise', 'Rear Delt Fly', 'Upright Row'
+    ]},
+    { group: 'Arms', exercises: [
+      'Barbell Curl', 'EZ Bar Curl', 'Dumbbell Curl', 'Hammer Curl',
+      'Preacher Curl', 'Incline Dumbbell Curl', 'Cable Curl', 'Concentration Curl',
+      'Close-Grip Bench Press', 'Skullcrusher', 'Tricep Pushdown',
+      'Overhead Tricep Extension', 'Machine Tricep Press', 'Bench Dip'
+    ]},
+    { group: 'Legs', exercises: [
+      'Back Squat', 'Front Squat', 'Hack Squat', 'Leg Press',
+      'Romanian Deadlift', 'Stiff-Leg Deadlift', 'Lunge', 'Bulgarian Split Squat',
+      'Leg Extension', 'Leg Curl', 'Hip Thrust', 'Good Morning',
+      'Calf Raise', 'Seated Calf Raise', 'Goblet Squat'
+    ]},
+    { group: 'Core', exercises: [
+      'Plank', 'Hanging Leg Raise', 'Cable Crunch', 'Ab Wheel',
+      'Russian Twist', 'Decline Sit-up', 'Wood Chop', 'Back Extension'
+    ]}
+  ];
+
+  /* Reverse index so a logged lift can show its muscle group. */
+  var GROUP_OF = {};
+  LIBRARY.forEach(function (g) {
+    g.exercises.forEach(function (e) { GROUP_OF[e] = g.group; });
+  });
+
+  /* ── Storage ───────────────────────────────────────────── */
+  function load() {
+    var base = { v: 2, unit: 'lbs', sets: [], bodyweight: [], goals: {} };
+    try {
+      var raw = localStorage.getItem(KEY);
+      if (!raw) return base;
+      var p = JSON.parse(raw);
+      if (!p || !Array.isArray(p.sets)) return base;
+      /* v1 had no bodyweight log. */
+      return {
+        v: 2,
+        unit: p.unit || 'lbs',
+        sets: p.sets,
+        bodyweight: Array.isArray(p.bodyweight) ? p.bodyweight : [],
+        goals: p.goals || {}
+      };
+    } catch (e) {
+      console.warn('Could not read saved data:', e);
+      return base;
+    }
+  }
+
+  function save(state) {
+    try {
+      localStorage.setItem(KEY, JSON.stringify(state));
+      return true;
+    } catch (e) {
+      console.error('Could not save:', e);
+      return false;
+    }
+  }
+
+  /* ── Dates ─────────────────────────────────────────────── */
+  function todayISO() {
+    var d = new Date();
+    return d.getFullYear() + '-' +
+           String(d.getMonth() + 1).padStart(2, '0') + '-' +
+           String(d.getDate()).padStart(2, '0');
+  }
+
+  /* Local-time parse — new Date('2026-09-23') is UTC and can land
+     a day early west of Greenwich. */
+  function isoToMs(iso) {
+    var p = String(iso).split('-');
+    return new Date(+p[0], +p[1] - 1, +p[2]).getTime();
+  }
+
+  /* Monday-based week index, used for the training streak. */
+  function weekIndex(iso) {
+    var d = new Date(isoToMs(iso));
+    var day = (d.getDay() + 6) % 7;          // Mon = 0
+    d.setDate(d.getDate() - day);
+    return Math.floor(d.getTime() / 604800000);
+  }
+
+  /* ── Lift math ─────────────────────────────────────────── */
+  function e1rm(weight, reps) {
+    return reps === 1 ? weight : weight * (1 + reps / 30);
+  }
+
+  function volume(sets) {
+    return sets.reduce(function (v, s) { return v + s.weight * s.reps; }, 0);
+  }
+
+  function sessionDates(sets) {
+    var seen = {};
+    sets.forEach(function (s) { seen[s.date] = true; });
+    return Object.keys(seen).sort();
+  }
+
+  /* Consecutive weeks containing at least one session, counting back
+     from this week. The current week doesn't break the streak until
+     it ends, so an untrained Monday doesn't wipe out 12 weeks. */
+  function streak(sets) {
+    var weeks = {};
+    sets.forEach(function (s) { weeks[weekIndex(s.date)] = true; });
+    var now = weekIndex(todayISO());
+
+    var current = 0;
+    var w = weeks[now] ? now : now - 1;
+    while (weeks[w]) { current++; w--; }
+
+    var keys = Object.keys(weeks).map(Number).sort(function (a, b) { return a - b; });
+    var best = 0, run = 0, prev = null;
+    keys.forEach(function (k) {
+      run = (prev !== null && k === prev + 1) ? run + 1 : 1;
+      if (run > best) best = run;
+      prev = k;
+    });
+
+    return { current: current, best: Math.max(best, current) };
+  }
+
+  /* ── XP & levels ───────────────────────────────────────── */
+  /* Volume is the bulk of it, with a bonus for showing up and for
+     beating a lift's previous best. */
+  var XP_PER_VOLUME = 0.02;   // 50 lbs moved = 1 XP
+  var XP_PER_SESSION = 25;
+  var XP_PER_PR = 50;
+
+  function xpBreakdown(sets) {
+    var vol = Math.round(volume(sets) * XP_PER_VOLUME);
+    var sessions = sessionDates(sets).length * XP_PER_SESSION;
+
+    /* A PR is any set that beat the best e1RM for that lift at the
+       time it was logged — so the count only ever grows. */
+    var best = {};
+    var prs = 0;
+    sets.slice().sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; })
+      .forEach(function (s) {
+        var est = e1rm(s.weight, s.reps);
+        if (best[s.exercise] === undefined) { best[s.exercise] = est; return; }
+        if (est > best[s.exercise] + 0.01) { best[s.exercise] = est; prs++; }
+      });
+
+    return {
+      volume: vol,
+      sessions: sessions,
+      prs: prs * XP_PER_PR,
+      prCount: prs,
+      total: vol + sessions + prs * XP_PER_PR
+    };
+  }
+
+  /* Each level costs a bit more than the last. */
+  function xpForLevel(n) {
+    return n <= 1 ? 0 : Math.round(300 * Math.pow(n - 1, 1.45));
+  }
+
+  var RANKS = [
+    'Untrained', 'Novice', 'Beginner', 'Apprentice', 'Intermediate',
+    'Seasoned', 'Advanced', 'Strong', 'Veteran', 'Elite',
+    'Beast', 'Monster', 'Titan', 'Freak', 'Legend'
+  ];
+
+  function levelFor(xp) {
+    var n = 1;
+    while (xpForLevel(n + 1) <= xp && n < 99) n++;
+    var floor = xpForLevel(n);
+    var ceil = xpForLevel(n + 1);
+    return {
+      level: n,
+      rank: RANKS[Math.min(n - 1, RANKS.length - 1)],
+      into: xp - floor,
+      need: ceil - floor,
+      pct: Math.max(0, Math.min(1, (xp - floor) / (ceil - floor)))
+    };
+  }
+
+  /* A lifetime-tonnage number means nothing on its own — anchor it. */
+  var COMPARISONS = [
+    { lbs: 120,      one: 'a bag of cement',   many: 'bags of cement' },
+    { lbs: 1500,     one: 'a grand piano',     many: 'grand pianos' },
+    { lbs: 5000,     one: 'a pickup truck',    many: 'pickup trucks' },
+    { lbs: 13000,    one: 'an elephant',       many: 'elephants' },
+    { lbs: 33000,    one: 'a school bus',      many: 'school buses' },
+    { lbs: 300000,   one: 'a blue whale',      many: 'blue whales' },
+    { lbs: 12000000, one: 'the Statue of Liberty', many: 'Statues of Liberty' }
+  ];
+
+  function compare(lbs) {
+    if (lbs <= 0) return '';
+    var pick = COMPARISONS[0];
+    for (var i = 0; i < COMPARISONS.length; i++) {
+      if (lbs / COMPARISONS[i].lbs >= 1) pick = COMPARISONS[i];
+    }
+    var n = lbs / pick.lbs;
+    var label = n >= 2 ? (n >= 10 ? Math.round(n) : Math.round(n * 10) / 10) + ' ' + pick.many
+                       : 'about ' + pick.one;
+    return 'That’s ' + label + '.';
+  }
+
+  window.LiftData = {
+    KEY: KEY,
+    LIBRARY: LIBRARY,
+    groupOf: function (name) { return GROUP_OF[name] || 'Other'; },
+    load: load,
+    save: save,
+    todayISO: todayISO,
+    isoToMs: isoToMs,
+    e1rm: e1rm,
+    volume: volume,
+    sessionDates: sessionDates,
+    streak: streak,
+    xpBreakdown: xpBreakdown,
+    levelFor: levelFor,
+    xpForLevel: xpForLevel,
+    compare: compare
+  };
+})();
