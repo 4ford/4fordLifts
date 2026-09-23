@@ -12,3 +12,9 @@ desktop.ini
 # Local backups exported from the app
 lift-tracker-*.json
 lift-tracker-*.csv
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.env
