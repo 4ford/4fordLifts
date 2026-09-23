@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d0d0d">
+<title>Lift Tracker</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-512.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Lifts">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="topbar">
+  <h1>Lift Tracker</h1>
+  <div class="timer" id="timer" hidden>
+    <span class="timer-value" id="timerValue">0:00</span>
+    <button class="timer-stop" id="timerStop" type="button" aria-label="Stop rest timer">&times;</button>
+  </div>
+</header>
+
+<main id="main">
+
+  <!-- ── Log ───────────────────────────────────────────────── -->
+  <section class="view" id="view-log">
+    <form id="setForm" autocomplete="off">
+      <div class="field">
+        <label for="f-exercise">Exercise</label>
+        <input id="f-exercise" name="exercise" list="exerciseList" required
+               placeholder="Bench Press" enterkeyhint="next">
+        <datalist id="exerciseList"></datalist>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label for="f-weight">Weight <span class="unit-label">lbs</span></label>
+          <div class="stepper">
+            <button type="button" class="step" data-step="-5" aria-label="Decrease weight">&minus;</button>
+            <input id="f-weight" name="weight" type="number" inputmode="decimal"
+                   step="0.5" min="0" required placeholder="135">
+            <button type="button" class="step" data-step="5" aria-label="Increase weight">+</button>
+          </div>
+        </div>
+        <div class="field">
+          <label for="f-reps">Reps</label>
+          <div class="stepper">
+            <button type="button" class="step" data-step="-1" data-target="f-reps" aria-label="Decrease reps">&minus;</button>
+            <input id="f-reps" name="reps" type="number" inputmode="numeric"
+                   step="1" min="1" max="100" required placeholder="5">
+            <button type="button" class="step" data-step="1" data-target="f-reps" aria-label="Increase reps">+</button>
+          </div>
+        </div>
+      </div>
+
+      <details class="more">
+        <summary>More</summary>
+        <div class="row">
+          <div class="field">
+            <label for="f-rpe">RPE <span class="hint">optional</span></label>
+            <input id="f-rpe" name="rpe" type="number" inputmode="decimal" step="0.5" min="1" max="10" placeholder="8">
+          </div>
+          <div class="field">
+            <label for="f-date">Date</label>
+            <input id="f-date" name="date" type="date" required>
+          </div>
+        </div>
+        <div class="field">
+          <label for="f-notes">Notes <span class="hint">optional</span></label>
+          <input id="f-notes" name="notes" placeholder="felt heavy off the chest">
+        </div>
+      </details>
+
+      <div class="actions">
+        <button type="submit" class="primary">Add set</button>
+        <button type="button" class="ghost" id="repeatBtn" disabled>Repeat last</button>
+      </div>
+    </form>
+
+    <h2 class="section-title">
+      <span id="todayLabel">Today</span>
+      <span class="section-meta" id="todayMeta"></span>
+    </h2>
+    <div id="todayList" class="stack"></div>
+  </section>
+
+  <!-- ── History ───────────────────────────────────────────── -->
+  <section class="view" id="view-history" hidden>
+    <h2 class="section-title">History</h2>
+    <div id="historyList" class="stack"></div>
+  </section>
+
+  <!-- ── Progress ──────────────────────────────────────────── -->
+  <section class="view" id="view-progress" hidden>
+    <div class="field">
+      <label for="p-exercise">Exercise</label>
+      <select id="p-exercise"></select>
+    </div>
+    <div id="progressBody"></div>
+  </section>
+
+  <!-- ── Data ──────────────────────────────────────────────── -->
+  <section class="view" id="view-data" hidden>
+    <h2 class="section-title">Settings</h2>
+    <div class="card">
+      <div class="setting">
+        <span>Units</span>
+        <div class="segmented" role="group" aria-label="Units">
+          <button type="button" data-unit="lbs" class="seg">lbs</button>
+          <button type="button" data-unit="kg" class="seg">kg</button>
+        </div>
+      </div>
+    </div>
+
+    <h2 class="section-title">Your data</h2>
+    <div class="card">
+      <p class="muted small">
+        Everything is stored in this browser only. Nothing is uploaded anywhere.
+        Export regularly so you have a backup.
+      </p>
+      <div class="actions wrap">
+        <button type="button" class="ghost" id="exportJson">Export backup (.json)</button>
+        <button type="button" class="ghost" id="exportCsv">Export spreadsheet (.csv)</button>
+        <button type="button" class="ghost" id="importBtn">Import backup</button>
+        <input type="file" id="importFile" accept="application/json,.json" hidden>
+      </div>
+      <div class="actions">
+        <button type="button" class="danger" id="clearBtn">Delete everything</button>
+      </div>
+      <p class="muted small" id="dataStats"></p>
+    </div>
+  </section>
+
+</main>
+
+<nav class="tabbar" role="tablist">
+  <button role="tab" class="tab" data-view="log" aria-selected="true">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Log
+  </button>
+  <button role="tab" class="tab" data-view="history" aria-selected="false">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg>History
+  </button>
+  <button role="tab" class="tab" data-view="progress" aria-selected="false">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18l5-6 4 3 7-8"/></svg>Progress
+  </button>
+  <button role="tab" class="tab" data-view="data" aria-selected="false">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg>Data
+  </button>
+</nav>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="chart.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

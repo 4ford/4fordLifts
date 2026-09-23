@@ -1,0 +1,14 @@
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editors / local tooling
+.vscode/
+.idea/
+.claude/
+*.swp
+
+# Local backups exported from the app
+lift-tracker-*.json
+lift-tracker-*.csv
