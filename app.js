@@ -426,6 +426,8 @@
 
     $('todayLabel').textContent = fmtDay(date);
     $('repeatBtn').disabled = state.sets.length === 0;
+    renderSuggest(date);
+    renderOnThisDay(date);
 
     var list = $('todayList');
     if (!sets.length) {
@@ -433,7 +435,7 @@
       $('todayMeta').textContent = '';
       return;
     }
-    $('todayMeta').textContent = sets.length + ' sets · ' + num(D.volume(sets)) + ' ' + unit();
+    $('todayMeta').textContent = plural(sets.length, 'set') + ' · ' + num(D.volume(sets)) + ' ' + unit();
     renderSetGroups(list, sets);
 
     var note = document.createElement('p');
@@ -441,6 +443,72 @@
     note.innerHTML = '<b>' + num(D.volume(sets)) + ' ' + unit() + '</b> moved. ' +
                      esc(D.compare(toLbs(D.volume(sets))));
     list.appendChild(note);
+  }
+
+  /* ── Next-set suggestion ───────────────────────────────── */
+  /* Lower-body barbell work moves in bigger jumps than everything else. */
+  function bigJump(name) {
+    return groupOf(name) === 'Legs' || name === 'Deadlift' || name === 'Rack Pull';
+  }
+
+  var SUGGEST_LABEL = { reps: 'Beat your reps', weight: 'Add weight', deload: 'Deload' };
+
+  function renderSuggest(date) {
+    var box = $('suggest');
+    var s = selected && D.suggestNext(state.sets, selected, date, bigJump(selected), unit());
+    if (!s) { box.innerHTML = ''; return; }
+
+    var lastLine = s.sets.map(function (x) { return num(x.weight) + '×' + x.reps; }).join('  ·  ');
+    var note = s.options[0].kind === 'deload'
+      ? '<p class="suggest-note">Stuck and sliding back, so take a lighter week, then build again.</p>'
+      : '';
+
+    box.innerHTML =
+      '<div class="suggest">' +
+        '<div class="suggest-last"><span class="tile-label">Last time · ' + fmtDay(s.date) + '</span>' +
+          '<span class="suggest-sets">' + lastLine + '</span></div>' +
+        '<div class="suggest-opts">' + s.options.map(function (o, i) {
+          var sub = o.kind === 'weight' ? '+' + num(o.jump) + ' ' + unit()
+                  : o.kind === 'reps' ? 'rep PR' : '90%';
+          return '<button type="button" class="suggest-opt" data-i="' + i + '">' +
+            '<span class="suggest-kind">' + SUGGEST_LABEL[o.kind] + '</span>' +
+            '<span class="suggest-num">' + num(o.weight) + ' × ' + o.reps + '</span>' +
+            '<span class="suggest-sub">' + sub + '</span></button>';
+        }).join('') + '</div>' +
+        note +
+      '</div>';
+
+    box.querySelectorAll('.suggest-opt').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var o = s.options[+b.dataset.i];
+        $('f-weight').value = o.weight;
+        $('f-reps').value = o.reps;
+      });
+    });
+  }
+
+  /* ── On this day ───────────────────────────────────────── */
+  function renderOnThisDay(date) {
+    var box = $('onThisDay');
+    /* It's about today — logging into another date shouldn't show it. */
+    var past = date === D.todayISO() ? D.onThisDay(state.sets, date) : [];
+    if (!past.length) { box.innerHTML = ''; return; }
+
+    box.innerHTML = past.map(function (p) {
+      var when = new Date(D.isoToMs(p.date)).toLocaleDateString(undefined,
+        { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+      return '<div class="section-head"><h2>' + (p.years === 1 ? 'A year ago' : p.years + ' years ago') +
+        '</h2><span class="section-meta">' + when + '</span></div>' +
+        '<div class="group">' + p.lifts.map(function (l) {
+          var pct = l.then > 0 ? Math.round((l.now / l.then - 1) * 100) : 0;
+          var delta = pct > 0 ? '<span class="otd-up">+' + pct + '%</span>'
+                    : pct < 0 ? '<span class="otd-down">' + pct + '%</span>'
+                    : '<span class="otd-flat">same</span>';
+          return '<div class="set-row"><span class="set-main">' + esc(l.name) +
+            '<div class="set-sub">' + num(l.weight) + ' × ' + l.reps + ' then · best est. 1RM now ' +
+            num(l.now) + ' ' + unit() + '</div></span>' + delta + '</div>';
+        }).join('') + '</div>';
+    }).join('');
   }
 
   /* The comparisons are in lbs; kg totals convert on the way in and out. */

@@ -66,6 +66,11 @@ A sync backend (FastAPI + PostgreSQL, raw SQL, no ORM) is planned in
 learn Python** — explain and guide, don't write it for him unless asked. He
 turned down managed options like Supabase for that reason.
 
+`PYTHON-PROJECTS.md` is his learning path: (1) analysing his CSV export, (2)
+porting `plateau()` to Python with pytest, (3) the backend. Same rule: when he
+works on these, give hints and explanations, not solutions. If `plateau()` in
+`data.js` changes, update the test table in that file to match.
+
 ## Testing on this machine
 
 Node is not installed. To check behavior:

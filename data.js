@@ -292,6 +292,83 @@
     };
   }
 
+  /* ── Next-set suggestions ──────────────────────────────── */
+  /* Two ways forward from the last session's top set, matching the two
+     ways the plateau tracker counts progress: beat the reps at that
+     weight (a guaranteed rep PR), or add one jump of weight. If the lift
+     is stuck *and* sliding, the honest suggestion is a deload instead. */
+  function suggestNext(sets, name, beforeDate, bigJump, unit) {
+    var mine = sets.filter(function (s) { return s.exercise === name; });
+    var prior = mine.filter(function (s) { return s.date < beforeDate; });
+    if (!prior.length) return null;
+
+    var lastDate = prior.reduce(function (m, s) { return s.date > m ? s.date : m; }, prior[0].date);
+    var last = prior.filter(function (s) { return s.date === lastDate; });
+    var top = last.reduce(function (m, s) {
+      return e1rm(s.weight, s.reps) > e1rm(m.weight, m.reps) ? s : m;
+    }, last[0]);
+
+    var kg = unit === 'kg';
+    var jump = kg ? (bigJump ? 5 : 2.5) : (bigJump ? 10 : 5);
+    var plate = kg ? 2.5 : 5;
+    var p = plateau(sets, name);
+    var options;
+
+    if ((p.status === 'plateau' || p.status === 'stalling') && p.off > 0.05) {
+      options = [{ kind: 'deload', weight: Math.round(top.weight * 0.9 / plate) * plate, reps: top.reps }];
+    } else {
+      /* Against every set logged, today's included, so it's a real PR. */
+      var most = mine.reduce(function (m, s) { return s.weight >= top.weight ? Math.max(m, s.reps) : m; }, 0);
+      options = [
+        { kind: 'reps',   weight: top.weight,        reps: most + 1 },
+        { kind: 'weight', weight: top.weight + jump, reps: top.reps, jump: jump }
+      ];
+    }
+
+    return { date: lastDate, sets: last, top: top, options: options, status: p.status };
+  }
+
+  /* ── On this day ───────────────────────────────────────── */
+  /* The session closest to this date in each earlier year, within a few
+     days — nobody trains on exactly the same date twice. */
+  var DAY_WINDOW = 3;
+
+  function onThisDay(sets, todayIso) {
+    var t = new Date(isoToMs(todayIso));
+    var dates = sessionDates(sets);
+    var out = [];
+
+    for (var n = 1; n <= 10; n++) {
+      var target = new Date(t.getFullYear() - n, t.getMonth(), t.getDate()).getTime();
+      var pick = null, gap = Infinity;
+      dates.forEach(function (d) {
+        var g = Math.round(Math.abs(isoToMs(d) - target) / 86400000);
+        if (g <= DAY_WINDOW && g < gap) { pick = d; gap = g; }
+      });
+      if (pick) out.push({ years: n, date: pick, lifts: liftsOn(sets, pick, todayIso) });
+    }
+    return out;
+  }
+
+  /* Each lift from one session — its top set then, and its best since. */
+  function liftsOn(sets, date, todayIso) {
+    var order = [], top = {};
+    sets.forEach(function (s) {
+      if (s.date !== date) return;
+      if (!top[s.exercise]) order.push(s.exercise);
+      if (!top[s.exercise] || e1rm(s.weight, s.reps) > e1rm(top[s.exercise].weight, top[s.exercise].reps)) {
+        top[s.exercise] = s;
+      }
+    });
+    return order.map(function (name) {
+      var now = sets.reduce(function (m, s) {
+        return s.exercise === name && s.date <= todayIso ? Math.max(m, e1rm(s.weight, s.reps)) : m;
+      }, 0);
+      var then = e1rm(top[name].weight, top[name].reps);
+      return { name: name, weight: top[name].weight, reps: top[name].reps, then: then, now: now };
+    });
+  }
+
   /* A lifetime-tonnage number means nothing on its own — anchor it. */
   /* Rough real-world weights, spaced so there's always a next one in
      reach — a single session lands around the car/truck rungs. */
@@ -365,6 +442,8 @@
     levelFor: levelFor,
     xpForLevel: xpForLevel,
     plateau: plateau,
+    suggestNext: suggestNext,
+    onThisDay: onThisDay,
     compare: compare,
     nextMilestone: nextMilestone
   };

@@ -25,6 +25,12 @@ values each, defined at the top of `styles.css`.
   Lifts missing from the library can be added with a muscle group; they appear
   under that group and a **Mine** chip, and are managed in **You → Your lifts**.
   Each session's total is compared to something real ("about 2 pickup trucks").
+- **Next-set suggestions** — pick a lift and it shows last session's sets plus
+  two targets: beat your reps (a guaranteed rep PR) or add one weight jump
+  (10 lbs / 5 kg for legs and deadlifts, 5 lbs / 2.5 kg otherwise). Tap one to
+  fill the form. A lift that's stuck and sliding gets a 90% deload instead.
+- **On this day** — the Log tab shows what you lifted around today's date in
+  each earlier year (within 3 days), and how much each lift has improved since.
 - **History** — every session grouped by date, with volume per lift
 - **Progress** — per-exercise estimated 1RM chart, best-by-reps table, PR badges,
   and a plateau watch that flags lifts that have stopped setting new bests
@@ -124,6 +130,8 @@ layer in `app.js` (`load`, `save`) is the only part that would need to change.
 | `sw.js` | Service worker — offline caching |
 | `manifest.webmanifest` | PWA metadata for home-screen install |
 | `fonts/` | Barlow Condensed, the display face, plus its license |
+| `PYTHON-PROJECTS.md` | Three Python projects to build on this after CS50P |
+| `BACKEND.md` | Build plan for the sync backend (the third of those projects) |
 
 ## Estimated 1RM
 

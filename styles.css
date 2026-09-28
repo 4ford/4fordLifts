@@ -223,6 +223,58 @@ main { max-width: 640px; margin: 0 auto; padding: 18px; }
   stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
 }
 
+/* ── Next-set suggestion ─────────────────────────────────── */
+.suggest {
+  margin: -4px 0 16px;
+  padding: 13px 14px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+}
+.suggest-last { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.suggest-last .tile-label { margin-bottom: 0; }
+.suggest-sets { font-size: 0.8125rem; font-weight: 600; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.suggest-opts { display: flex; gap: 8px; margin-top: 11px; }
+.suggest-opt {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  padding: 10px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-2);
+  border-radius: var(--r-sm);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.suggest-opt:active { border-color: var(--accent); }
+.suggest-kind {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+.suggest-num {
+  font-family: var(--display);
+  font-size: 1.75rem;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.suggest-sub {
+  font-family: var(--display);
+  font-size: 0.875rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+}
+.suggest-note { margin: 10px 0 0; font-size: 0.8125rem; color: var(--text-2); }
+
 /* ── Form ────────────────────────────────────────────────── */
 .field { display: flex; flex-direction: column; gap: 7px; margin-bottom: 14px; flex: 1; min-width: 0; }
 .field label {
@@ -247,7 +299,8 @@ input, select {
   font-variant-numeric: tabular-nums;
 }
 input[type="number"] { font-size: 1.875rem; font-weight: 800; line-height: 1; }
-.stepper input { min-height: 58px; }
+/* Tight side padding and narrower steppers so "202.5" fits a phone. */
+.stepper input { min-height: 58px; padding: 6px 2px; font-size: 1.75rem; }
 input:focus-visible, select:focus-visible, button:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
@@ -259,7 +312,7 @@ input::placeholder { color: #43484d; }
 .stepper { display: flex; gap: 7px; }
 .stepper input { text-align: center; }
 .step {
-  flex: 0 0 var(--tap);
+  flex: 0 0 42px;
   min-height: 58px;
   background: var(--surface-2);
   border: 1px solid var(--border);
@@ -509,6 +562,27 @@ summary.group-head::-webkit-details-marker { display: none; }
   font-variant-numeric: tabular-nums;
 }
 .session-note b { color: var(--text); font-weight: 800; }
+
+/* On this day — the change since then, as a solid block. */
+.otd-up, .otd-down, .otd-flat {
+  flex: 0 0 auto;
+  font-family: var(--display);
+  font-size: 1.125rem;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.otd-up   { color: var(--accent); }
+.otd-down { color: var(--danger); }
+.otd-flat { color: var(--muted); text-transform: uppercase; }
+#onThisDay .set-main {
+  font-family: var(--display);
+  font-size: 1.25rem;
+  font-weight: 800;
+  line-height: 1.05;
+  text-transform: uppercase;
+}
+#onThisDay .set-sub { font-family: var(--font); text-transform: none; }
 
 /* ── Tiles ───────────────────────────────────────────────── */
 .tiles { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 4px; }
