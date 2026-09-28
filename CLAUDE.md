@@ -42,15 +42,22 @@ explain *why*, sparingly.
 
 ## Design constraints (from Matt)
 
-Neon, but **not** the "classic vibecoded look": no purple gradient washes, no
-glassmorphism cards. Flat surfaces, 1px borders, heavy numerals.
+**Bold athletic** (Nike Training / gym-wall poster), chosen 2026-09-28 to
+replace the original neon look, which Matt didn't like. Never "vibecoded":
+no gradient washes, no glassmorphism, **no neon and no glow at all**.
 
+- Hard black (`#0b0b0b`) and chalk white, one solid accent. Emphasis comes from
+  size and solid fills, not effects.
+- Big condensed uppercase type via `--display` (Barlow Condensed, bundled in
+  `fonts/`) for names, headings, numbers and buttons; `--font` (system) for
+  small body text and meta lines.
+- Tight corners (`--r` 6px, `--r-sm` 4px); no pill shapes.
 - Two accents with fixed jobs: `--accent` = lifting (primary action, PRs, lift
   charts); `--accent-2` = progression (level, XP, streak, bodyweight). Don't use
   them decoratively.
-- **Glow is reserved for PRs and the XP bar.** Warnings (e.g. plateau) get no
-  glow.
 - Derive new colors from the tokens with `color-mix` so all five themes work.
+  Retired theme ids are mapped to the default by `knownTheme` in `data.js`.
+- New files the app needs offline go in `SHELL` in `sw.js`, with a `CACHE` bump.
 
 ## Backend
 

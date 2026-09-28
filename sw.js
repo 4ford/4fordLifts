@@ -1,7 +1,7 @@
 /* Offline support. Network-first so a new deploy is picked up on the
    next online load; the cache is the fallback when there is no signal
    (gym basements, etc). Bump CACHE when the file list changes. */
-var CACHE = 'lift-tracker-v2';
+var CACHE = 'lift-tracker-v3';
 var SHELL = [
   './',
   'index.html',
@@ -10,7 +10,9 @@ var SHELL = [
   'app.js',
   'chart.js',
   'manifest.webmanifest',
-  'icon.svg'
+  'icon.svg',
+  'fonts/BarlowCondensed-ExtraBold.ttf',
+  'fonts/BarlowCondensed-SemiBold.ttf'
 ];
 
 self.addEventListener('install', function (e) {

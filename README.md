@@ -7,11 +7,16 @@ climb. Runs entirely in the browser — no build step, no server, no dependencie
 
 ## Colors
 
-Two accents, each with a fixed job — `--accent` is the lifting (primary action,
-PR badges, lift charts), `--accent-2` is progression (level, XP, streak,
-bodyweight). Everything else derives from those two with `color-mix`, so the
-five themes in Settings are just a pair of hex values each, defined at the top
-of `styles.css`.
+Bold athletic: hard black and chalk white, one solid accent, and big condensed
+uppercase type ([Barlow Condensed](https://github.com/jpt/barlow), bundled in
+`fonts/` under the SIL Open Font License so it works offline). There's no glow
+anywhere; emphasis comes from size and solid fills.
+
+Two accents, each with a fixed job. `--accent` is the lifting: primary action,
+PR badges, lift charts. `--accent-2` is progression: level, XP, streak,
+bodyweight. Everything else derives from those two with `color-mix`, so the
+five themes in Settings (Blaze, Red, Cobalt, Gold, Chalk) are just a pair of hex
+values each, defined at the top of `styles.css`.
 
 ## Features
 
@@ -118,6 +123,7 @@ layer in `app.js` (`load`, `save`) is the only part that would need to change.
 | `chart.js` | Standalone SVG line chart with hover tooltips |
 | `sw.js` | Service worker — offline caching |
 | `manifest.webmanifest` | PWA metadata for home-screen install |
+| `fonts/` | Barlow Condensed, the display face, plus its license |
 
 ## Estimated 1RM
 

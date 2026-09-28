@@ -942,7 +942,7 @@
           custom: Array.isArray(data.custom) ? data.custom : state.custom,
           profile: {
             name: (data.profile && data.profile.name) || state.profile.name,
-            theme: (data.profile && data.profile.theme) || state.profile.theme
+            theme: D.knownTheme((data.profile && data.profile.theme) || state.profile.theme)
           }
         };
         persist();

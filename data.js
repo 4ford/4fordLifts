@@ -50,7 +50,7 @@
   function load() {
     var base = {
       v: 4, unit: 'lbs', sets: [], bodyweight: [], goals: {}, custom: [],
-      profile: { name: '', theme: 'volt' }
+      profile: { name: '', theme: 'blaze' }
     };
     try {
       var raw = localStorage.getItem(KEY);
@@ -67,7 +67,7 @@
         custom: Array.isArray(p.custom) ? p.custom : [],
         profile: {
           name: (p.profile && p.profile.name) || '',
-          theme: (p.profile && p.profile.theme) || 'volt'
+          theme: knownTheme(p.profile && p.profile.theme)
         }
       };
     } catch (e) {
@@ -334,17 +334,24 @@
   }
 
   var THEMES = [
-    { id: 'volt',  label: 'Volt',  a1: '#ccff33', a2: '#b14aff' },
-    { id: 'ultra', label: 'Ultra', a1: '#b14aff', a2: '#2ee6d6' },
-    { id: 'ice',   label: 'Ice',   a1: '#2ee6d6', a2: '#ff4fd8' },
-    { id: 'ember', label: 'Ember', a1: '#ff9d2e', a2: '#b14aff' },
-    { id: 'neon',  label: 'Neon',  a1: '#ff2e97', a2: '#ccff33' }
+    { id: 'blaze',  label: 'Blaze',  a1: '#ff5a1f', a2: '#f5f5f0' },
+    { id: 'red',    label: 'Red',    a1: '#e8192c', a2: '#f5f5f0' },
+    { id: 'cobalt', label: 'Cobalt', a1: '#2d5bff', a2: '#f5f5f0' },
+    { id: 'gold',   label: 'Gold',   a1: '#ffb400', a2: '#f5f5f0' },
+    { id: 'chalk',  label: 'Chalk',  a1: '#f5f5f0', a2: '#ff5a1f' }
   ];
+  var DEFAULT_THEME = 'blaze';
+
+  /* The old neon themes were retired — anyone on one lands on the default. */
+  function knownTheme(id) {
+    return THEMES.some(function (t) { return t.id === id; }) ? id : DEFAULT_THEME;
+  }
 
   window.LiftData = {
     KEY: KEY,
     LIBRARY: LIBRARY,
     THEMES: THEMES,
+    knownTheme: knownTheme,
     groupOf: function (name) { return GROUP_OF[name] || 'Other'; },
     load: load,
     save: save,
