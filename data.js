@@ -1,5 +1,5 @@
 /* Storage, the exercise library, and all the derived numbers
-   (tonnage, streaks, XP) that the views read. */
+   (tonnage, streaks, XP, plateaus) that the views read. */
 (function () {
   'use strict';
 
@@ -202,6 +202,95 @@
     };
   }
 
+  /* ── Plateaus ──────────────────────────────────────────── */
+  /* A session counts as progress if any set in it was a weight PR
+     (heaviest ever), a rep PR (more reps at a weight than ever done at
+     that weight or heavier), or a new best e1RM — the last so a set
+     wearing a PR badge can never sit on a plateau. Rep PRs only count
+     at a weight lifted before, or a first-ever light warm-up would
+     "beat" every heavier set on reps.
+
+     Stalling and plateau each need a session count *and* a time span,
+     so three sessions in one week — or one session a month — can't
+     trip them on their own. */
+  var STALL = { sessions: 3, weeks: 2 };
+  var PLATEAU = { sessions: 5, weeks: 4 };
+  var MIN_SESSIONS = 4;       // fewer than this and there's no trend to read
+  var DORMANT_WEEKS = 6;      // not trained lately: parked, not plateaued
+
+  /* When one set qualifies several ways, report the plainest. */
+  var PR_RANK = { weight: 0, reps: 1, e1rm: 2 };
+
+  function plateau(sets, name) {
+    var byDay = {};
+    sets.forEach(function (s) {
+      if (s.exercise === name) (byDay[s.date] = byDay[s.date] || []).push(s);
+    });
+    var days = Object.keys(byDay).sort();
+    if (days.length < MIN_SESSIONS) {
+      return { status: 'new', sessions: days.length, need: MIN_SESSIONS - days.length };
+    }
+
+    var heaviest = 0, best = 0;
+    var repsAt = {};              // weight -> most reps ever done at it
+    var perDay = {};              // date -> that session's best e1RM
+    var lastIdx = 0, last = null;
+
+    function mostRepsFrom(w) {
+      var m = 0;
+      for (var k in repsAt) if (+k >= w && repsAt[k] > m) m = repsAt[k];
+      return m;
+    }
+
+    days.forEach(function (d, i) {
+      /* Judge every set against history from *before* this session. */
+      var hit = null;
+      byDay[d].forEach(function (s) {
+        var est = e1rm(s.weight, s.reps);
+        perDay[d] = Math.max(perDay[d] || 0, est);
+        if (i === 0) return;
+        var kind = s.weight > heaviest ? 'weight'
+                 : repsAt[s.weight] !== undefined && s.reps > mostRepsFrom(s.weight) ? 'reps'
+                 : est > best + 0.01 ? 'e1rm' : null;
+        if (kind && (!hit || PR_RANK[kind] < PR_RANK[hit.kind])) hit = { kind: kind, set: s };
+      });
+      if (i === 0) hit = { kind: 'first', set: byDay[d][0] };
+      if (hit) { lastIdx = i; last = hit; }
+
+      byDay[d].forEach(function (s) {
+        heaviest = Math.max(heaviest, s.weight);
+        best = Math.max(best, e1rm(s.weight, s.reps));
+        repsAt[s.weight] = Math.max(repsAt[s.weight] || 0, s.reps);
+      });
+    });
+
+    var today = isoToMs(todayISO());
+    var lastDay = days[lastIdx];
+    var since = days.length - 1 - lastIdx;
+    var weeks = (today - isoToMs(lastDay)) / 604800000;
+    var idle = (today - isoToMs(days[days.length - 1])) / 604800000;
+
+    /* How far the last few sessions sit under the peak — separates
+       "holding steady" from "sliding backwards". */
+    var recent = Math.max.apply(null, days.slice(-3).map(function (d) { return perDay[d]; }));
+
+    var status = 'progressing';
+    if (idle >= DORMANT_WEEKS) status = 'dormant';
+    else if (since >= PLATEAU.sessions && weeks >= PLATEAU.weeks) status = 'plateau';
+    else if (since >= STALL.sessions && weeks >= STALL.weeks) status = 'stalling';
+
+    return {
+      status: status,
+      sessions: days.length,
+      best: best,
+      last: { date: lastDay, kind: last.kind, weight: last.set.weight, reps: last.set.reps },
+      since: since,
+      weeks: Math.floor(weeks),
+      idleWeeks: Math.floor(idle),
+      off: best > 0 ? 1 - recent / best : 0
+    };
+  }
+
   /* A lifetime-tonnage number means nothing on its own — anchor it. */
   var COMPARISONS = [
     { lbs: 120,      one: 'a bag of cement',   many: 'bags of cement' },
@@ -249,6 +338,7 @@
     xpBreakdown: xpBreakdown,
     levelFor: levelFor,
     xpForLevel: xpForLevel,
+    plateau: plateau,
     compare: compare
   };
 })();

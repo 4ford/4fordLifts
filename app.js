@@ -242,6 +242,7 @@
 
     var before = D.levelFor(D.xpBreakdown(state.sets).total).level;
     var prevBest = bestE1rm(selected);
+    var wasStuck = /^(stalling|plateau)$/.test(D.plateau(state.sets, selected).status);
 
     state.sets.push({
       id: Date.now() + '-' + Math.random().toString(36).slice(2, 7),
@@ -263,6 +264,9 @@
     var isPr = prevBest > 0 && D.e1rm(weight, reps) > prevBest + 0.01;
 
     if (after > before) toast('LEVEL UP — ' + D.levelFor(D.xpBreakdown(state.sets).total).rank, true);
+    else if (wasStuck && D.plateau(state.sets, selected).status === 'progressing') {
+      toast('PLATEAU BROKEN on ' + selected, true);
+    }
     else if (isPr) toast('NEW PR on ' + selected, true);
     else toast('Set added');
   });
@@ -399,6 +403,7 @@
   function renderProgress() {
     var names = recentExercises().sort();
     var body = $('progressBody');
+    renderPlateauWatch(names);
 
     if (!names.length) {
       pSelect.innerHTML = '';
@@ -438,6 +443,7 @@
         tile('Volume', num(D.volume(sets)), unit()) +
         tile('Sessions', days.length, '') +
       '</div>' +
+      plateauCard(D.plateau(state.sets, chosen)) +
       '<div class="chart-wrap" id="chartWrap"></div>' +
       '<button type="button" class="table-toggle" id="tableToggle">Show data table</button>' +
       '<div id="tableBody" hidden></div>' +
@@ -460,6 +466,86 @@
       tb.hidden = !tb.hidden;
       this.textContent = tb.hidden ? 'Show data table' : 'Hide data table';
     });
+  }
+
+  /* ── Plateaus ──────────────────────────────────────────── */
+  var STATUS_LABEL = {
+    progressing: 'Progressing', stalling: 'Stalling', plateau: 'Plateau',
+    dormant: 'Resting', 'new': 'Too early'
+  };
+
+  var PR_LABEL = { weight: 'weight PR', reps: 'rep PR', e1rm: 'est. 1RM PR' };
+
+  function pill(status) {
+    return '<span class="status status-' + status + '">' + STATUS_LABEL[status] + '</span>';
+  }
+
+  function plural(n, word) { return n + ' ' + word + (n === 1 ? '' : 's'); }
+
+  /* Every stuck lift, worst first — tap one to open its chart. */
+  function renderPlateauWatch(names) {
+    var wrap = $('plateauWatch');
+    var stuck = names.map(function (n) { return { name: n, p: D.plateau(state.sets, n) }; })
+      .filter(function (x) { return x.p.status === 'plateau' || x.p.status === 'stalling'; })
+      .sort(function (a, b) {
+        if (a.p.status !== b.p.status) return a.p.status === 'plateau' ? -1 : 1;
+        return b.p.since - a.p.since;
+      });
+
+    if (!stuck.length) { wrap.innerHTML = ''; return; }
+
+    wrap.innerHTML = '<div class="section-head section-head-top"><h2>Plateau watch</h2>' +
+      '<span class="section-meta">' + plural(stuck.length, 'lift') + '</span></div>';
+    var group = document.createElement('div');
+    group.className = 'group watch';
+    stuck.forEach(function (x) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'set-row watch-row';
+      b.innerHTML = '<span class="set-main">' + esc(x.name) +
+        '<div class="set-sub">' + plural(x.p.since, 'session') + ' · ' +
+        plural(x.p.weeks, 'week') + ' without a PR</div></span>' + pill(x.p.status);
+      b.addEventListener('click', function () {
+        pSelect.value = x.name;
+        renderProgress();
+        $('progressBody').scrollIntoView({ block: 'start' });
+      });
+      group.appendChild(b);
+    });
+    wrap.appendChild(group);
+  }
+
+  function plateauCard(p) {
+    var line, tip = '';
+    if (p.status === 'new') {
+      line = 'Log ' + plural(p.need, 'more session') + ' to read a trend.';
+    } else if (p.status === 'dormant') {
+      line = 'Not trained in ' + plural(p.idleWeeks, 'week') + '.';
+    } else if (p.last.kind === 'first') {
+      line = 'No weight or rep PR since your first session, ' + plural(p.since, 'session') + ' ago.';
+    } else {
+      var pr = PR_LABEL[p.last.kind] + ' (' + num(p.last.weight) + ' × ' + p.last.reps + ')';
+      line = p.since === 0
+        ? 'Moving — ' + pr + ' last session.'
+        : 'Last progress was a ' + pr + ' on ' + fmtDay(p.last.date) + ', ' +
+          plural(p.since, 'session') + ' ago.';
+    }
+
+    /* The advice follows the data: sliding back points at fatigue,
+       holding steady points at the program. */
+    if (p.status === 'plateau' || p.status === 'stalling') {
+      tip = p.off > 0.05
+        ? 'Recent sessions are ' + Math.round(p.off * 100) + '% under your best, which usually means ' +
+          'fatigue. A lighter deload week tends to fix it.'
+        : 'You’re holding strength but not adding it. Try a different rep range, ' +
+          'an extra set, or smaller jumps in weight.';
+    }
+
+    return '<div class="card plateau-card">' +
+      '<div class="plateau-top"><span class="tile-label">Trend</span>' + pill(p.status) + '</div>' +
+      '<div class="plateau-line">' + line + '</div>' +
+      (tip ? '<div class="plateau-tip">' + tip + '</div>' : '') +
+    '</div>';
   }
 
   function tile(label, value, u) {

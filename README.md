@@ -18,7 +18,8 @@ of `styles.css`.
 - **Log** — pick a lift by muscle group or search, then log weight × reps with
   optional RPE and notes. Prefills your last numbers; rest timer starts itself.
 - **History** — every session grouped by date, with volume per lift
-- **Progress** — per-exercise estimated 1RM chart, best-by-reps table, PR badges
+- **Progress** — per-exercise estimated 1RM chart, best-by-reps table, PR badges,
+  and a plateau watch that flags lifts that have stopped setting new bests
 - **You** — level and XP, lifetime tonnage, training streak, 16-week grid,
   and a bodyweight log with its own chart
 - Works offline and installs to your phone's home screen (PWA)
@@ -34,6 +35,32 @@ of `styles.css`.
 
 Each level costs more than the last (`300 × (level − 1)^1.45`), and every level
 carries a rank name from Untrained up to Legend.
+
+## How plateaus are called
+
+A session counts as progress if any set in it is one of these:
+
+- **Weight PR**: the heaviest weight you've done on that lift, at any reps
+- **Rep PR**: more reps at a weight than you've done at that weight or heavier.
+  This only counts at a weight you've lifted before, so a first-time light
+  warm-up can't count as a rep PR.
+- **New best estimated 1RM**: the same test as the PR badge, so a lift wearing
+  a badge is never shown as stuck
+
+| Status | Rule |
+|---|---|
+| Progressing | A PR within the last 2 sessions, or not enough time has passed |
+| Stalling | 3+ sessions **and** 2+ weeks without a PR |
+| Plateau | 5+ sessions **and** 4+ weeks without a PR |
+| Resting | Not trained in 6+ weeks, so it isn't counted |
+| Too early | Fewer than 4 sessions logged |
+
+A lift needs both the session count and the time span, so a few sessions
+crammed into one week, or one session a month, can't trigger it alone. The tip
+under a stuck lift depends on the numbers. If your recent sessions are more than
+5% under your best, it points at fatigue and suggests a deload. Otherwise it
+suggests a program change. The thresholds live at the top of the plateau
+section in `data.js`.
 
 ## Running it locally
 

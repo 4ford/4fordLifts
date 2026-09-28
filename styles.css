@@ -504,6 +504,46 @@ summary.group-head::-webkit-details-marker { display: none; }
 .bw-form .field { margin-bottom: 0; }
 .bw-submit { grid-column: 1 / -1; }
 
+/* ── Plateaus ────────────────────────────────────────────── */
+/* A warning, not a win — so no glow. Progressing borrows the lift
+   accent; plateau takes a muted danger tint rather than full red. */
+.section-head-top { margin-top: 0; }
+.watch { margin-bottom: 18px; }
+.watch-row {
+  width: 100%;
+  background: none;
+  border-left: 0; border-right: 0; border-bottom: 0;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.watch-row:first-child { border-top: 0; }
+.watch-row:active { background: var(--surface-2); }
+
+.status {
+  flex: 0 0 auto;
+  font-size: 0.625rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 3px 8px;
+  border-radius: 5px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.status-progressing { background: var(--accent-soft); color: var(--accent); border-color: var(--accent-line); }
+.status-stalling    { background: var(--surface-3); color: var(--text); border-color: var(--border-2); }
+.status-plateau     { background: rgba(255, 95, 95, 0.12); color: var(--danger); border-color: rgba(255, 95, 95, 0.4); }
+.status-dormant,
+.status-new         { background: transparent; color: var(--muted); border-color: var(--border-2); }
+
+.plateau-card { margin: 10px 0; }
+.plateau-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.plateau-top .tile-label { margin-bottom: 0; }
+.plateau-line { margin-top: 9px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.plateau-tip { margin-top: 6px; font-size: 0.8125rem; color: var(--text-2); }
+
 /* ── Table ───────────────────────────────────────────────── */
 table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
 th, td { padding: 9px 10px; text-align: right; font-size: 0.875rem; }
