@@ -534,6 +534,42 @@ summary.group-head::-webkit-details-marker { display: none; }
 }
 .hero-unit { font-size: 1.5rem; font-weight: 800; text-transform: uppercase; color: var(--text-2); }
 .hero-note { margin-top: 9px; font-size: 0.8125rem; color: var(--text-2); }
+.hero-note:empty { display: none; }
+
+/* ── The climb ───────────────────────────────────────────── */
+.climb .next-bar { margin-top: 12px; }
+.climb-next-top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.climb-next-top .tile-label { margin-bottom: 0; }
+.climb-name {
+  font-family: var(--display);
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1;
+  text-transform: uppercase;
+}
+.climb-name.mystery { color: var(--accent); letter-spacing: 0.08em; }
+.climb-hint { margin: 0; font-size: 0.875rem; color: var(--text-2); }
+.climb-row .set-main {
+  font-family: var(--display);
+  font-size: 1.375rem;
+  font-weight: 800;
+  line-height: 1.05;
+  text-transform: uppercase;
+}
+.climb-row .set-sub { font-family: var(--font); text-transform: none; }
+.climb-tag {
+  flex: 0 0 auto;
+  font-family: var(--display);
+  font-size: 0.875rem;
+  font-weight: 800;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 4px 7px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border-2);
+  color: var(--text-2);
+}
 
 /* Progress toward the next comparison — lifting, so --accent, no glow. */
 .next-bar {

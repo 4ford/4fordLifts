@@ -387,27 +387,71 @@
     { lbs: 22000000, one: 'the Eiffel Tower',     many: 'Eiffel Towers' }
   ];
 
-  function compare(lbs) {
+  /* The same idea, from fiction. Only items with an official or canon
+     weight — handbooks, the Pokédex, published mecha specs — not fan
+     estimates. Small rungs on purpose: "293 Mjolnirs" is the fun part. */
+  var FICTIONAL = [
+    { lbs: 12,        one: 'Captain America’s shield', many: 'Captain America shields' },
+    { lbs: 42.3,      one: 'Mjolnir',                  many: 'Mjolnirs' },
+    { lbs: 1014.1,    one: 'a Snorlax',                many: 'Snorlax' },
+    { lbs: 2094.4,    one: 'a Groudon',                many: 'Groudon' },
+    { lbs: 2712,      one: 'the DeLorean from Back to the Future', many: 'DeLoreans' },
+    { lbs: 44092,     one: 'Mazinger Z',               many: 'Mazinger Zs' },
+    { lbs: 132277,    one: 'a fully loaded RX-78-2 Gundam', many: 'Gundams' },
+    { lbs: 3960000,   one: 'Gipsy Danger',             many: 'Gipsy Dangers' },
+    { lbs: 198416000, one: 'Godzilla',                 many: 'Godzillas' }
+  ];
+
+  /* "2.5 pickup trucks" — the biggest rung you've passed, as a count. */
+  function phrase(lbs, ladder) {
     if (lbs <= 0) return '';
-    var pick = COMPARISONS[0];
-    for (var i = 0; i < COMPARISONS.length; i++) {
-      if (lbs / COMPARISONS[i].lbs >= 1) pick = COMPARISONS[i];
+    var pick = ladder[0];
+    for (var i = 0; i < ladder.length; i++) {
+      if (lbs / ladder[i].lbs >= 1) pick = ladder[i];
     }
     var n = lbs / pick.lbs;
-    var label = n >= 1.1 ? (n >= 10 ? Math.round(n) : Math.round(n * 10) / 10) + ' ' + pick.many
-                         : 'about ' + pick.one;
-    return 'That’s ' + label + '.';
+    return n >= 1.1 ? (n >= 10 ? Math.round(n).toLocaleString() : Math.round(n * 10) / 10) + ' ' + pick.many
+                    : 'about ' + pick.one;
   }
 
-  /* The next rung up, and how far along the way to it you are. */
-  function nextMilestone(lbs) {
-    for (var i = 0; i < COMPARISONS.length; i++) {
-      if (COMPARISONS[i].lbs > lbs) {
-        return { one: COMPARISONS[i].one, lbs: COMPARISONS[i].lbs,
-                 left: COMPARISONS[i].lbs - lbs, pct: Math.max(0, lbs) / COMPARISONS[i].lbs };
-      }
-    }
-    return null;
+  function compare(lbs) {
+    return lbs > 0 ? 'That’s ' + phrase(lbs, COMPARISONS) + '.' : '';
+  }
+
+  /* Always taking the biggest rung would mean nothing but DeLoreans, so
+     pick any item that gives a count from 1 to 1,000, rotating daily —
+     "293 Mjolnirs" one day, "12 Snorlax" the next, steady within a day. */
+  function compareFiction(lbs, seed) {
+    var fits = FICTIONAL.filter(function (f) { return lbs / f.lbs >= 1 && lbs / f.lbs <= 1000; });
+    if (!fits.length) return phrase(lbs, FICTIONAL);
+    var pick = fits[Math.abs(seed || 0) % fits.length];
+    return phrase(lbs, [pick]);
+  }
+
+  /* ── The climb ─────────────────────────────────────────── */
+  /* Real and fictional items on one ladder, lifted in order as lifetime
+     tonnage passes each. Nothing ahead is shown — not the next item, not
+     how many are left — only how far to the next unlock. */
+  var LADDER = COMPARISONS.map(function (c) { return { name: c.one, lbs: c.lbs, fiction: false }; })
+    .concat(FICTIONAL.map(function (f) { return { name: f.one, lbs: f.lbs, fiction: true }; }))
+    .sort(function (a, b) { return a.lbs - b.lbs; });
+
+  /* toLbs converts a stored weight (lbs or kg) to lbs, since the ladder is in lbs. */
+  function climb(sets, toLbs) {
+    var sorted = sets.slice().sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+    var cum = 0, i = 0, lifted = [];
+    sorted.forEach(function (s) {
+      cum += toLbs(s.weight * s.reps);
+      while (i < LADDER.length && cum >= LADDER[i].lbs) { lifted.push({ item: LADDER[i], date: s.date }); i++; }
+    });
+
+    var prev = i > 0 ? LADDER[i - 1].lbs : 0;
+    var next = LADDER[i] || null;
+    return {
+      total: cum,
+      lifted: lifted,
+      next: next && { left: next.lbs - cum, pct: (cum - prev) / (next.lbs - prev) }
+    };
   }
 
   var THEMES = [
@@ -445,6 +489,7 @@
     suggestNext: suggestNext,
     onThisDay: onThisDay,
     compare: compare,
-    nextMilestone: nextMilestone
+    compareFiction: compareFiction,
+    climb: climb
   };
 })();

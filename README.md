@@ -34,8 +34,12 @@ values each, defined at the top of `styles.css`.
 - **History** — every session grouped by date, with volume per lift
 - **Progress** — per-exercise estimated 1RM chart, best-by-reps table, PR badges,
   and a plateau watch that flags lifts that have stopped setting new bests
-- **You** — level and XP, lifetime tonnage compared to real things (golden
-  retriever up to the Eiffel Tower) with a bar toward the next one, training
+- **You** — level and XP, lifetime tonnage, and **the climb**: real and
+  fictional items on one ladder (a golden retriever and Mjolnir up to Gipsy
+  Danger and Godzilla — official/canon weights only for fiction), unlocked in
+  order as your lifetime total passes each. The next item is always a mystery
+  (`???` with a progress bar) until you lift it, then it's revealed with the
+  date and a toast. Nothing ahead is shown, not even how many are left. Training
   streak, 16-week grid, and a bodyweight log with its own chart
 - Works offline and installs to your phone's home screen (PWA)
 - Export/import your data as JSON, export to CSV for spreadsheets

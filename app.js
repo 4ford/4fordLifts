@@ -322,6 +322,7 @@
     var before = D.levelFor(D.xpBreakdown(state.sets).total).level;
     var prevBest = bestE1rm(selected);
     var wasStuck = /^(stalling|plateau)$/.test(D.plateau(state.sets, selected).status);
+    var liftedBefore = climb().lifted.length;
 
     state.sets.push({
       id: Date.now() + '-' + Math.random().toString(36).slice(2, 7),
@@ -342,7 +343,11 @@
     var after = D.levelFor(D.xpBreakdown(state.sets).total).level;
     var isPr = prevBest > 0 && D.e1rm(weight, reps) > prevBest + 0.01;
 
-    if (after > before) toast('LEVEL UP — ' + D.levelFor(D.xpBreakdown(state.sets).total).rank, true);
+    /* A new item off the climb is the rarest moment, so it wins the toast. */
+    var unlocked = climb().lifted.slice(liftedBefore).map(function (l) { return bare(l.item.name); });
+
+    if (unlocked.length) toast('You lifted ' + unlocked.join(' + ') + '!', true);
+    else if (after > before) toast('LEVEL UP — ' + D.levelFor(D.xpBreakdown(state.sets).total).rank, true);
     else if (wasStuck && D.plateau(state.sets, selected).status === 'progressing') {
       toast('PLATEAU BROKEN on ' + selected, true);
     }
@@ -440,8 +445,9 @@
 
     var note = document.createElement('p');
     note.className = 'session-note';
+    var lbs = toLbs(D.volume(sets));
     note.innerHTML = '<b>' + num(D.volume(sets)) + ' ' + unit() + '</b> moved. ' +
-                     esc(D.compare(toLbs(D.volume(sets))));
+                     esc(D.compare(lbs).replace(/\.$/, '')) + ', or ' + esc(D.compareFiction(lbs, daySeed())) + '.';
     list.appendChild(note);
   }
 
@@ -513,6 +519,8 @@
 
   /* The comparisons are in lbs; kg totals convert on the way in and out. */
   function toLbs(v) { return state.unit === 'kg' ? v * 2.205 : v; }
+  /* Changes once a day, so the fictional comparison rotates but doesn't flicker. */
+  function daySeed() { return Math.round(D.isoToMs(D.todayISO()) / 86400000); }
   function fromLbs(v) { return state.unit === 'kg' ? v / 2.205 : v; }
 
   fDate.addEventListener('change', renderLog);
@@ -743,13 +751,7 @@
 
     $('tonnage').textContent = num(total);
     $('tonnageNote').textContent = D.compare(toLbs(total));
-
-    var next = D.nextMilestone(toLbs(total));
-    $('tonnageNext').innerHTML = next
-      ? '<div class="next-bar"><div class="next-fill" style="width:' + (next.pct * 100) + '%"></div></div>' +
-        '<div class="next-meta"><span>Next up: ' + esc(next.one) + '</span>' +
-        '<span>' + num(Math.ceil(fromLbs(next.left))) + ' ' + unit() + ' to go</span></div>'
-      : '';
+    renderClimb();
 
     $('streakCur').innerHTML = st.current + ' <span class="tile-unit">wks</span>';
     $('streakBest').innerHTML = st.best + ' <span class="tile-unit">wks</span>';
@@ -853,6 +855,37 @@
     });
     $('bwList').innerHTML = '';
     $('bwList').appendChild(wrap);
+  }
+
+  /* ── The climb ─────────────────────────────────────────── */
+  function climb() { return D.climb(state.sets, toLbs); }
+
+  /* "a Snorlax" reads right in a sentence; a list wants "Snorlax". */
+  function bare(name) { return name.replace(/^(a|an|the) /, ''); }
+
+  function renderClimb() {
+    var c = climb();
+    $('climbMeta').textContent = c.lifted.length ? c.lifted.length + ' lifted' : '';
+
+    var next = c.next
+      ? '<div class="card climb">' +
+          '<div class="climb-next-top"><span class="tile-label">Next</span>' +
+            '<span class="climb-name mystery">???</span></div>' +
+          '<div class="next-bar"><div class="next-fill" style="width:' + (c.next.pct * 100) + '%"></div></div>' +
+          '<div class="next-meta"><span>Keep lifting to find out</span>' +
+            '<span>' + num(Math.ceil(fromLbs(c.next.left))) + ' ' + unit() + ' to go</span></div>' +
+        '</div>'
+      : '<div class="card climb"><p class="climb-hint">You’ve lifted everything there is. Legend.</p></div>';
+
+    var list = c.lifted.length
+      ? '<div class="group">' + c.lifted.slice().reverse().map(function (l) {
+          return '<div class="set-row climb-row"><span class="set-main">' + esc(bare(l.item.name)) +
+            '<div class="set-sub">Lifted ' + fmtDay(l.date) + ' · ' + num(fromLbs(l.item.lbs)) + ' ' + unit() +
+            '</div></span>' + (l.item.fiction ? '<span class="climb-tag">Fiction</span>' : '') + '</div>';
+        }).join('') + '</div>'
+      : '<div class="empty">Log a set to lift your first thing.</div>';
+
+    $('climb').innerHTML = next + list;
   }
 
   /* ── Your lifts (settings) ─────────────────────────────── */
