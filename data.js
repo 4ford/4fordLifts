@@ -49,7 +49,7 @@
   /* ── Storage ───────────────────────────────────────────── */
   function load() {
     var base = {
-      v: 3, unit: 'lbs', sets: [], bodyweight: [], goals: {},
+      v: 4, unit: 'lbs', sets: [], bodyweight: [], goals: {}, custom: [],
       profile: { name: '', theme: 'volt' }
     };
     try {
@@ -57,13 +57,14 @@
       if (!raw) return base;
       var p = JSON.parse(raw);
       if (!p || !Array.isArray(p.sets)) return base;
-      /* v1 had no bodyweight log; v2 had no profile. */
+      /* v1 had no bodyweight log; v2 had no profile; v3 had no custom lifts. */
       return {
-        v: 3,
+        v: 4,
         unit: p.unit || 'lbs',
         sets: p.sets,
         bodyweight: Array.isArray(p.bodyweight) ? p.bodyweight : [],
         goals: p.goals || {},
+        custom: Array.isArray(p.custom) ? p.custom : [],
         profile: {
           name: (p.profile && p.profile.name) || '',
           theme: (p.profile && p.profile.theme) || 'volt'
@@ -292,14 +293,21 @@
   }
 
   /* A lifetime-tonnage number means nothing on its own — anchor it. */
+  /* Rough real-world weights, spaced so there's always a next one in
+     reach — a single session lands around the car/truck rungs. */
   var COMPARISONS = [
-    { lbs: 120,      one: 'a bag of cement',   many: 'bags of cement' },
-    { lbs: 1500,     one: 'a grand piano',     many: 'grand pianos' },
-    { lbs: 5000,     one: 'a pickup truck',    many: 'pickup trucks' },
-    { lbs: 13000,    one: 'an elephant',       many: 'elephants' },
-    { lbs: 33000,    one: 'a school bus',      many: 'school buses' },
-    { lbs: 300000,   one: 'a blue whale',      many: 'blue whales' },
-    { lbs: 12000000, one: 'the Statue of Liberty', many: 'Statues of Liberty' }
+    { lbs: 65,       one: 'a golden retriever',   many: 'golden retrievers' },
+    { lbs: 600,      one: 'a grizzly bear',       many: 'grizzly bears' },
+    { lbs: 1000,     one: 'a grand piano',        many: 'grand pianos' },
+    { lbs: 3000,     one: 'a car',                many: 'cars' },
+    { lbs: 5000,     one: 'a pickup truck',       many: 'pickup trucks' },
+    { lbs: 13000,    one: 'an elephant',          many: 'elephants' },
+    { lbs: 33000,    one: 'a school bus',         many: 'school buses' },
+    { lbs: 80000,    one: 'a loaded semi truck',  many: 'loaded semi trucks' },
+    { lbs: 300000,   one: 'a blue whale',         many: 'blue whales' },
+    { lbs: 450000,   one: 'the Statue of Liberty', many: 'Statues of Liberty' },
+    { lbs: 925000,   one: 'the Space Station',    many: 'Space Stations' },
+    { lbs: 22000000, one: 'the Eiffel Tower',     many: 'Eiffel Towers' }
   ];
 
   function compare(lbs) {
@@ -309,9 +317,20 @@
       if (lbs / COMPARISONS[i].lbs >= 1) pick = COMPARISONS[i];
     }
     var n = lbs / pick.lbs;
-    var label = n >= 2 ? (n >= 10 ? Math.round(n) : Math.round(n * 10) / 10) + ' ' + pick.many
-                       : 'about ' + pick.one;
+    var label = n >= 1.1 ? (n >= 10 ? Math.round(n) : Math.round(n * 10) / 10) + ' ' + pick.many
+                         : 'about ' + pick.one;
     return 'That’s ' + label + '.';
+  }
+
+  /* The next rung up, and how far along the way to it you are. */
+  function nextMilestone(lbs) {
+    for (var i = 0; i < COMPARISONS.length; i++) {
+      if (COMPARISONS[i].lbs > lbs) {
+        return { one: COMPARISONS[i].one, lbs: COMPARISONS[i].lbs,
+                 left: COMPARISONS[i].lbs - lbs, pct: Math.max(0, lbs) / COMPARISONS[i].lbs };
+      }
+    }
+    return null;
   }
 
   var THEMES = [
@@ -339,6 +358,7 @@
     levelFor: levelFor,
     xpForLevel: xpForLevel,
     plateau: plateau,
-    compare: compare
+    compare: compare,
+    nextMilestone: nextMilestone
   };
 })();

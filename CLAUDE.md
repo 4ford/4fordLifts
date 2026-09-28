@@ -27,7 +27,9 @@ explain *why*, sparingly.
 
 - **Dates** are local `YYYY-MM-DD` strings. Parse with `LiftData.isoToMs`,
   never `new Date('2026-09-23')` — that's UTC and lands a day early.
-- **Storage schema** is versioned (`v: 3`, key `lift-tracker/v1`). Any new
+- **Custom lifts** live in `state.custom` (`{ name, group }`). Use `groupOf` in
+  `app.js`, not `LiftData.groupOf`, which only knows the built-in library.
+- **Storage schema** is versioned (`v: 4`, key `lift-tracker/v1`). Any new
   field needs a default in `load()` *and* in the import and clear-all paths in
   `app.js`, so older saved data and backups still load.
 - **PRs** everywhere (badge, XP, toast) mean a new best Epley e1RM. The plateau

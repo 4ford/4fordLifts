@@ -17,11 +17,15 @@ of `styles.css`.
 
 - **Log** — pick a lift by muscle group or search, then log weight × reps with
   optional RPE and notes. Prefills your last numbers; rest timer starts itself.
+  Lifts missing from the library can be added with a muscle group; they appear
+  under that group and a **Mine** chip, and are managed in **You → Your lifts**.
+  Each session's total is compared to something real ("about 2 pickup trucks").
 - **History** — every session grouped by date, with volume per lift
 - **Progress** — per-exercise estimated 1RM chart, best-by-reps table, PR badges,
   and a plateau watch that flags lifts that have stopped setting new bests
-- **You** — level and XP, lifetime tonnage, training streak, 16-week grid,
-  and a bodyweight log with its own chart
+- **You** — level and XP, lifetime tonnage compared to real things (golden
+  retriever up to the Eiffel Tower) with a bar toward the next one, training
+  streak, 16-week grid, and a bodyweight log with its own chart
 - Works offline and installs to your phone's home screen (PWA)
 - Export/import your data as JSON, export to CSV for spreadsheets
 

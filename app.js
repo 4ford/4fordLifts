@@ -95,6 +95,35 @@
     return out;
   }
 
+  /* ── Your own lifts ────────────────────────────────────── */
+  var GROUPS = D.LIBRARY.map(function (g) { return g.group; }).concat(['Other']);
+
+  function groupOf(name) {
+    for (var i = 0; i < state.custom.length; i++) {
+      if (state.custom[i].name === name) return state.custom[i].group;
+    }
+    return D.groupOf(name);
+  }
+
+  function customIn(group) {
+    return state.custom.filter(function (c) { return c.group === group; })
+                       .map(function (c) { return c.name; });
+  }
+
+  /* Library, your lifts, and anything logged under a typed-in name. */
+  function allLifts() {
+    var pool = [];
+    D.LIBRARY.forEach(function (g) { pool = pool.concat(g.exercises); });
+    state.custom.forEach(function (c) { if (pool.indexOf(c.name) === -1) pool.push(c.name); });
+    recentExercises().forEach(function (n) { if (pool.indexOf(n) === -1) pool.push(n); });
+    return pool;
+  }
+
+  function findLift(name) {
+    var lower = name.toLowerCase();
+    return allLifts().filter(function (n) { return n.toLowerCase() === lower; })[0] || null;
+  }
+
   function lastSetFor(name) {
     for (var i = state.sets.length - 1; i >= 0; i--) {
       if (state.sets[i].exercise === name) return state.sets[i];
@@ -128,6 +157,7 @@
   function renderChips() {
     var groups = [];
     if (recentExercises().length) groups.push('Recent');
+    if (state.custom.length) groups.push('Mine');
     D.LIBRARY.forEach(function (g) { groups.push(g.group); });
 
     groupChips.innerHTML = '';
@@ -154,17 +184,18 @@
 
     var sections = [];
     if (q) {
-      /* Search spans everything: the library plus anything logged. */
-      var pool = [];
-      D.LIBRARY.forEach(function (g) { pool = pool.concat(g.exercises); });
-      recentExercises().forEach(function (n) { if (pool.indexOf(n) === -1) pool.push(n); });
-      var hits = pool.filter(function (n) { return n.toLowerCase().indexOf(q) > -1; });
+      /* Search spans everything: the library, your lifts, anything logged. */
+      var hits = allLifts().filter(function (n) { return n.toLowerCase().indexOf(q) > -1; });
       sections.push({ title: hits.length ? 'Matches' : '', items: hits });
     } else if (activeGroup === 'Recent') {
       sections.push({ title: 'Recently logged', items: recentExercises() });
+    } else if (activeGroup === 'Mine') {
+      sections.push({ title: 'Your lifts', items: state.custom.map(function (c) { return c.name; }) });
     } else {
       D.LIBRARY.forEach(function (g) {
-        if (g.group === activeGroup) sections.push({ title: g.group, items: g.exercises });
+        if (g.group === activeGroup) {
+          sections.push({ title: g.group, items: g.exercises.concat(customIn(g.group)) });
+        }
       });
     }
 
@@ -187,29 +218,77 @@
       });
     });
 
-    /* Anything not in the library can still be logged. */
-    var exact = q && sections.some(function (s) {
-      return s.items.some(function (n) { return n.toLowerCase() === q; });
-    });
-    if (q && !exact) {
-      var custom = document.createElement('button');
-      custom.type = 'button';
-      custom.className = 'sheet-item';
-      custom.innerHTML = '<span>Use “' + esc(sheetSearch.value.trim()) + '”</span>' +
-                         '<span class="recent">custom</span>';
-      custom.addEventListener('click', function () { choose(sheetSearch.value.trim()); });
-      sheetBody.appendChild(custom);
+    /* Anything missing can be added — prefilled from the search. */
+    if (!q || !findLift(q)) {
+      var add = document.createElement('button');
+      add.type = 'button';
+      add.className = 'sheet-item sheet-add';
+      add.innerHTML = q
+        ? '<span>Add “' + esc(sheetSearch.value.trim()) + '”</span><span class="recent">new lift</span>'
+        : '<span>+ Add your own lift</span>';
+      add.addEventListener('click', function () { openAddForm(sheetSearch.value.trim()); });
+      sheetBody.appendChild(add);
     }
   }
 
   sheetSearch.addEventListener('input', renderSheetList);
+
+  function openAddForm(name) {
+    var group = GROUPS.indexOf(activeGroup) > -1 ? activeGroup : 'Other';
+    sheetBody.innerHTML =
+      '<div class="add-lift">' +
+        '<div class="sheet-group">New lift</div>' +
+        '<div class="field"><label for="al-name">Name</label>' +
+          '<input id="al-name" maxlength="40" placeholder="Landmine Press" autocomplete="off"></div>' +
+        '<label class="field-label">Muscle group</label>' +
+        '<div class="chips chips-wrap" id="al-groups"></div>' +
+        '<div class="actions">' +
+          '<button type="button" class="ghost" id="al-cancel">Cancel</button>' +
+          '<button type="button" class="primary" id="al-save">Add lift</button>' +
+        '</div>' +
+      '</div>';
+
+    var input = $('al-name');
+    input.value = name;
+
+    function drawGroups() {
+      var wrap = $('al-groups');
+      wrap.innerHTML = '';
+      GROUPS.forEach(function (g) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'chip';
+        b.textContent = g;
+        b.setAttribute('aria-pressed', String(g === group));
+        b.addEventListener('click', function () { group = g; drawGroups(); });
+        wrap.appendChild(b);
+      });
+    }
+    drawGroups();
+
+    function save() {
+      var n = input.value.trim().replace(/\s+/g, ' ');
+      if (!n) { input.focus(); return toast('Give the lift a name'); }
+      var existing = findLift(n);
+      if (existing) { toast('Already in the list'); return choose(existing); }
+      state.custom.push({ name: n, group: group });
+      persist();
+      toast('Added ' + n);
+      choose(n);
+    }
+
+    $('al-save').addEventListener('click', save);
+    $('al-cancel').addEventListener('click', renderSheetList);
+    input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); save(); } });
+    input.focus();
+  }
 
   function choose(name) {
     selected = name;
     var btn = $('pickerBtn');
     btn.classList.add('chosen');
     $('pickerLabel').textContent = name;
-    $('pickerGroup').textContent = D.groupOf(name) === 'Other' ? '' : D.groupOf(name);
+    $('pickerGroup').textContent = groupOf(name) === 'Other' ? '' : groupOf(name);
     closeSheet();
 
     /* Prefill with the last numbers used for this lift. */
@@ -356,7 +435,17 @@
     }
     $('todayMeta').textContent = sets.length + ' sets · ' + num(D.volume(sets)) + ' ' + unit();
     renderSetGroups(list, sets);
+
+    var note = document.createElement('p');
+    note.className = 'session-note';
+    note.innerHTML = '<b>' + num(D.volume(sets)) + ' ' + unit() + '</b> moved. ' +
+                     esc(D.compare(toLbs(D.volume(sets))));
+    list.appendChild(note);
   }
+
+  /* The comparisons are in lbs; kg totals convert on the way in and out. */
+  function toLbs(v) { return state.unit === 'kg' ? v * 2.205 : v; }
+  function fromLbs(v) { return state.unit === 'kg' ? v / 2.205 : v; }
 
   fDate.addEventListener('change', renderLog);
 
@@ -585,7 +674,14 @@
     requestAnimationFrame(function () { $('xpFill').style.width = (lv.pct * 100) + '%'; });
 
     $('tonnage').textContent = num(total);
-    $('tonnageNote').textContent = state.unit === 'lbs' ? D.compare(total) : D.compare(total * 2.205);
+    $('tonnageNote').textContent = D.compare(toLbs(total));
+
+    var next = D.nextMilestone(toLbs(total));
+    $('tonnageNext').innerHTML = next
+      ? '<div class="next-bar"><div class="next-fill" style="width:' + (next.pct * 100) + '%"></div></div>' +
+        '<div class="next-meta"><span>Next up: ' + esc(next.one) + '</span>' +
+        '<span>' + num(Math.ceil(fromLbs(next.left))) + ' ' + unit() + ' to go</span></div>'
+      : '';
 
     $('streakCur').innerHTML = st.current + ' <span class="tile-unit">wks</span>';
     $('streakBest').innerHTML = st.best + ' <span class="tile-unit">wks</span>';
@@ -595,11 +691,12 @@
     renderIdentity();
     renderWeeks();
     renderBodyweight();
+    renderCustomList();
 
     document.querySelectorAll('.seg').forEach(function (b) {
       b.setAttribute('aria-pressed', String(b.dataset.unit === state.unit));
     });
-    $('dataStats').textContent = state.sets.length + ' sets · ' +
+    $('dataStats').textContent = state.sets.length + ' sets · ' + state.custom.length + ' custom lifts · ' +
       recentExercises().length + ' exercises · ' + state.bodyweight.length + ' weigh-ins';
   }
 
@@ -688,6 +785,38 @@
     });
     $('bwList').innerHTML = '';
     $('bwList').appendChild(wrap);
+  }
+
+  /* ── Your lifts (settings) ─────────────────────────────── */
+  function renderCustomList() {
+    var box = $('customList');
+    if (!state.custom.length) {
+      box.innerHTML = '<div class="empty">Lifts you add in the exercise picker show up here.</div>';
+      return;
+    }
+    var wrap = document.createElement('div');
+    wrap.className = 'group';
+    state.custom.forEach(function (c) {
+      var row = document.createElement('div');
+      row.className = 'set-row';
+      row.innerHTML = '<span class="set-main">' + esc(c.name) + '</span>' +
+                      '<span class="set-e1rm">' + esc(c.group) + '</span>';
+      var del = document.createElement('button');
+      del.className = 'del';
+      del.type = 'button';
+      del.innerHTML = '&times;';
+      del.setAttribute('aria-label', 'Remove ' + c.name);
+      del.addEventListener('click', function () {
+        if (!confirm('Remove ' + c.name + ' from your lifts? Sets you’ve logged stay.')) return;
+        state.custom = state.custom.filter(function (x) { return x.name !== c.name; });
+        persist();
+        renderYou();
+      });
+      row.appendChild(del);
+      wrap.appendChild(row);
+    });
+    box.innerHTML = '';
+    box.appendChild(wrap);
   }
 
   /* ── Streak chip ───────────────────────────────────────── */
@@ -782,7 +911,7 @@
   $('exportCsv').addEventListener('click', function () {
     var rows = [['date', 'muscle_group', 'exercise', 'weight', 'unit', 'reps', 'rpe', 'est_1rm', 'notes']];
     state.sets.slice().sort(function (a, b) { return a.date < b.date ? -1 : 1; }).forEach(function (s) {
-      rows.push([s.date, D.groupOf(s.exercise), s.exercise, s.weight, state.unit,
+      rows.push([s.date, groupOf(s.exercise), s.exercise, s.weight, state.unit,
                  s.reps, s.rpe || '', round(D.e1rm(s.weight, s.reps)), s.notes || '']);
     });
     download('lift-tracker-' + D.todayISO() + '.csv',
@@ -806,9 +935,11 @@
             !confirm('Replace your ' + state.sets.length + ' sets with ' +
                      data.sets.length + ' from this file?')) return;
         state = {
-          v: 3, unit: data.unit || 'lbs', sets: data.sets,
+          v: 4, unit: data.unit || 'lbs', sets: data.sets,
           bodyweight: Array.isArray(data.bodyweight) ? data.bodyweight : [],
           goals: data.goals || {},
+          /* Older backups have no custom lifts — keep the ones you have. */
+          custom: Array.isArray(data.custom) ? data.custom : state.custom,
           profile: {
             name: (data.profile && data.profile.name) || state.profile.name,
             theme: (data.profile && data.profile.theme) || state.profile.theme
@@ -830,8 +961,9 @@
     if (!state.sets.length && !state.bodyweight.length) return toast('Nothing to delete');
     if (!confirm('Delete everything? This cannot be undone.')) return;
     if (!confirm('Really? Export a backup first if there is any chance you want it.')) return;
-    /* Settings and who you are survive a data wipe. */
-    state = { v: 3, unit: state.unit, sets: [], bodyweight: [], goals: {}, profile: state.profile };
+    /* Settings, your lift list, and who you are survive a data wipe. */
+    state = { v: 4, unit: state.unit, sets: [], bodyweight: [], goals: {},
+              custom: state.custom, profile: state.profile };
     persist();
     boot();
     toast('All data deleted');

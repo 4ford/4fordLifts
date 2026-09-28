@@ -455,6 +455,34 @@ summary.group-head::-webkit-details-marker { display: none; }
 .hero-unit { font-size: 0.9375rem; font-weight: 700; letter-spacing: 0; color: var(--text-2); }
 .hero-note { margin-top: 9px; font-size: 0.8125rem; color: var(--text-2); }
 
+/* Progress toward the next comparison — lifting, so --accent, no glow. */
+.next-bar {
+  height: 6px;
+  margin-top: 16px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+.next-fill { height: 100%; border-radius: 999px; background: var(--accent); }
+.next-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 7px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.session-note {
+  margin: 2px 2px 0;
+  font-size: 0.8125rem;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+.session-note b { color: var(--text); font-weight: 800; }
+
 /* ── Tiles ───────────────────────────────────────────────── */
 .tiles { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 4px; }
 .tile {
@@ -705,6 +733,11 @@ tbody tr { border-top: 1px solid var(--border); }
   cursor: pointer;
 }
 .sheet-item:active { color: var(--accent); }
+.sheet-add { color: var(--accent); border-bottom: 0; }
+
+.add-lift { padding-bottom: 6px; }
+.add-lift input { background: var(--surface-2); }
+.chips-wrap { flex-wrap: wrap; overflow: visible; padding: 0 0 18px; }
 .sheet-item .recent {
   font-size: 0.6875rem;
   font-weight: 600;
